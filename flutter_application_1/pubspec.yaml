@@ -37,8 +37,6 @@ dependencies:
   sqlite3_flutter_libs: ^0.5.20
   # Cloud Database SDK
   supabase_flutter: ^2.6.0
-  # AI Engine
-  google_generative_ai: ^0.4.0
   # UI & Charts
   fl_chart: ^0.66.0
   path_provider: ^2.1.2
@@ -50,7 +48,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  # Code generator cho Drift
+  # Code generator for Drift
   drift_dev: ^2.16.0
   build_runner: ^2.4.8
 

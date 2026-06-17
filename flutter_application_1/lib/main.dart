@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/presentation/screen/workout_log_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized(); // Ensure that Flutter bindings are initialized before running the app (for the drift database to work properly) 
   runApp(const MyApp());
 }
 

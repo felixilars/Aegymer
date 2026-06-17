@@ -1,4 +1,9 @@
-# Kế Hoạch Triển Khai: Gym & Nutrition Tracker App (Android/iOS)
+lib/databases/app_database.dart source_gen:combining_builder                        
+W app_database.g.dart must be included as a part directive in the input library     
+  with:                                                                             
+      part 'app_database.g.dart';                                                   
+                                                                                    
+Built with build_runner/aot in 23s with warnings; wrote 23 outputs. # Kế Hoạch Triển Khai: Gym & Nutrition Tracker App (Android/iOS)
 
 Dự án này là một ứng dụng di động đa nền tảng (Android/iOS) hỗ trợ người dùng theo dõi quá trình tập luyện (Gym Tracker) và đề xuất dinh dưỡng cá nhân hóa (Nutrition Suggestion) sử dụng Trí tuệ Nhân tạo (AI/ML). 
 

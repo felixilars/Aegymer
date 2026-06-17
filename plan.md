@@ -294,7 +294,6 @@ Khi cơ sở dữ liệu local tích lũy đủ lịch sử tập luyện của 
 ---
 
 ## Verification Plan
-
 ### Kiểm thử Tự động (Automated Tests)
 *   **Unit Tests:** Kiểm tra các công thức toán học cốt lõi: tính BMR, TDEE, Estimated 1RM, và khung đề xuất Progressive Overload.
 *   **Integration Tests:** Đảm bảo dữ liệu ghi từ màn hình Workout log lưu đúng vào local SQLite và kiểm thử tính năng Backup/Restore lên Drive/iCloud cá nhân hoạt động chuẩn xác.

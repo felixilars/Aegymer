@@ -18,7 +18,7 @@ Hệ thống sẽ ghi nhận lịch sử tập luyện, tính toán năng lượ
 > **2. Cơ sở dữ liệu Cloud:** Sử dụng **Supabase** (Gói Free).
 > **3. Kiến trúc Cơ sở dữ liệu (Database Architecture):** Áp dụng mô hình **Hybrid Decentralized (Shared Cloud + Local Personal)**:
 >    - **Supabase Cloud (Gói Free ~500MB):** Chỉ lưu trữ dữ liệu chung phổ biến nhất (danh mục bài tập chuẩn phổ biến, thực phẩm cơ bản phổ biến, cấu hình hệ thống). 
->    - **Phương án dự phòng tràn dung lượng Cloud DB:** Nếu dữ liệu danh mục chung phình to, Supabase sẽ chỉ lưu giữ các mục phổ biến nhất. Các mục ít dùng được truy vấn từ API bên ngoài (Open Food Facts) sẽ chỉ được tải và lưu trữ cục bộ trên thiết bị của người dùng dưới dạng custom food (`PERSONAL_FOODS`/`PERSONAL_EXERCISES`), không đồng bộ ngược lại Cloud.
+>    - **Phương án dự phòng tràn dung lượng Cloud DB:** Nếu dữ liệu danh mục chung phình to, Supabase sẽ chỉ lưu giữ các mục phổ biến nhất. Các mục ít dùng được truy vấn từ API bên ngoài (Open Food Facts) sẽ chỉ được tải và lưu trữ cục bộ trên thiết bị của người dùng dưới dạng custom food/exercise trong bảng local `FOODS`/`EXERCISES` (với cờ `is_custom = true`), không đồng bộ ngược lại Cloud.
 >    - **Local DB (SQLite - Drift):** Lưu trữ toàn bộ thông tin cá nhân của người dùng (lịch sử tập, nhật ký ăn uống, thể trạng, bài tập/món ăn tự custom). Đảm bảo bảo mật và hoạt động offline hoàn toàn.
 >    - **Giải pháp Sao lưu (Backup):** Người dùng có thể xuất file sao lưu (mã hóa JSON/SQLite) đồng bộ lên tài khoản **Google Drive / iCloud** cá nhân của họ.
 > **4. Phương án Dinh dưỡng & Gợi ý món ăn:** Hoàn toàn **MIỄN PHÍ**. Sử dụng **Thuật toán Heuristic Đa dạng hóa (Diverse Heuristic Matcher)** chạy cục bộ (kết hợp cơ chế phạt tần suất món ăn và lựa chọn ngẫu nhiên có trọng số Softmax) + **Open Food Facts API** (miễn phí, không cần API Key) để đảm bảo thực đơn gợi ý phong phú, không lặp đi lặp lại.
@@ -122,13 +122,13 @@ erDiagram
 ```
 
 #### B. Local Database (SQLite - Drift, Lưu trữ riêng tư trên máy User)
-Lưu toàn bộ nhật ký tập luyện, dinh dưỡng, thể trạng và các tùy chỉnh cá nhân.
+Lưu toàn bộ nhật ký tập luyện, dinh dưỡng, thể trạng và các tùy chỉnh cá nhân. Để tối ưu hóa thiết kế cơ sở dữ liệu quan hệ (đảm bảo khóa ngoại chuẩn xác và giảm thiểu độ phức tạp SQL), chúng ta sẽ gộp dữ liệu dùng chung (Global) và tự tạo (Custom) vào chung một bảng ở local, phân biệt bằng cờ `is_custom`:
 - **`USER_PROFILE`**: Thể trạng hiện tại, mục tiêu, sở thích ăn uống.
-- **`PERSONAL_EXERCISES`**: Bài tập do user tự thêm.
+- **`EXERCISES`**: Lưu toàn bộ bài tập (bài tập đồng bộ từ Supabase có `is_custom = false`, bài tập user tự tạo có `is_custom = true`).
 - **`WORKOUT_SESSIONS`**: Các buổi tập của user.
-- **`WORKOUT_SETS`**: Chi tiết các set tập trong mỗi buổi.
-- **`PERSONAL_FOODS`**: Thực phẩm tự thêm.
-- **`USER_MEALS`**: Nhật ký ăn uống hằng ngày.
+- **`WORKOUT_SETS`**: Chi tiết các set tập trong mỗi buổi (khóa ngoại `exercise_id` liên kết trực tiếp đến bảng `EXERCISES`).
+- **`FOODS`**: Lưu toàn bộ thực phẩm (đồng bộ từ Supabase có `is_custom = false`, user tự tạo hoặc được cache từ Open Food Facts khi tìm kiếm có `is_custom = true`).
+- **`USER_MEALS`**: Nhật ký ăn uống hằng ngày (liên kết trực tiếp đến bảng `FOODS`).
 
 ```mermaid
 erDiagram
@@ -143,12 +143,13 @@ erDiagram
         string target
         string preferences
     }
-    PERSONAL_EXERCISES {
+    EXERCISES {
         uuid id PK
         string name
         string target_muscle
         string equipment
         string description
+        string video_url
         boolean is_custom
     }
     WORKOUT_SESSIONS {
@@ -159,14 +160,14 @@ erDiagram
     WORKOUT_SETS {
         uuid id PK
         uuid session_id FK
-        uuid exercise_id FK "Liên kết tới GLOBAL hoặc PERSONAL EXERCISES"
+        uuid exercise_id FK "Liên kết trực tiếp tới EXERCISES"
         int set_number
         float weight
         int reps
         int rpe
         float calculated_1rm
     }
-    PERSONAL_FOODS {
+    FOODS {
         uuid id PK
         string name
         float calories
@@ -174,12 +175,13 @@ erDiagram
         float carbs
         float fat
         string category
+        boolean is_custom
     }
     USER_MEALS {
         uuid id PK
         datetime date
         string meal_type
-        jsonb items "Danh sách thực phẩm chọn từ GLOBAL hoặc PERSONAL FOODS"
+        jsonb items "Danh sách thực phẩm chọn từ FOODS"
         float total_calories
     }
 ```
@@ -251,7 +253,7 @@ Khi cơ sở dữ liệu local tích lũy đủ lịch sử tập luyện của 
     *   Fat: Từ 20% đến 25% tổng Calo_mục_tiêu (1g Fat giải phóng 9 kcal).
     *   Carbs: Phần calo còn lại sau khi trừ đi calo từ Protein và Fat sẽ dành cho Carbs (1g Carb giải phóng 4 kcal).
 *   **Bước 3: Thuật toán Heuristic Đa dạng hóa (Diverse Heuristic Matcher - Không dùng API trả phí):**
-    *   **Cơ chế tìm kiếm nguồn:** Kết hợp tìm kiếm ngoại tuyến từ CSDL `GLOBAL_FOODS` (hoặc món ăn tự thêm) và gọi API miễn phí **Open Food Facts API** (không cần API Key) để quét mã vạch hoặc tra cứu dinh dưỡng sản phẩm.
+    *   **Cơ chế tìm kiếm nguồn:** Kết hợp tìm kiếm ngoại tuyến từ CSDL local `FOODS` và gọi API miễn phí **Open Food Facts API** (không cần API Key) để quét mã vạch hoặc tra cứu dinh dưỡng sản phẩm.
     *   **Phân nhóm nguyên liệu (Categorization):** Phân mảnh danh mục món ăn thành các nhóm chức năng chính (Nguồn Carb, Nguồn Protein, Nguồn Fat tốt, Rau xanh/Xơ) để đảm bảo cơ cấu bữa ăn cân đối.
     *   **Bộ lọc cứng (Hard Filters):** Lọc bỏ lập tức các món ăn vi phạm quy tắc dị ứng hoặc chế độ ăn kiêng của người dùng.
     *   **Giải thuật Khớp Dinh dưỡng có Đa dạng hóa (Local Matcher Algorithm):**

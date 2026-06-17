@@ -1,5 +1,7 @@
 // Calculates the calories burned during a workout based on parameters such as duration, intensity, and type of exercise.
 
+import 'dart:math';
+
 class WorkoutCalculator {
   // e1RM - Estimated 1 Rep Max
   // e1RM = weight * (1 + (reps / 30))
@@ -27,5 +29,35 @@ class WorkoutCalculator {
       return 0.0;
     }
     return (met * 3.5 * bodyweightKg / 200.0 * durationMinutes);
+  }
+
+  // Volume load
+  // Volume = Weight * Reps * Sets
+  static double calculateVolume(List<double> weights, List<int> reps) {
+    double total = 0.0;
+    int limit = min(weights.length, reps.length);
+    for (int i = 0; i < limit; i++) {
+      total += weights[i] * reps[i];
+    }
+    return total;
+  }
+
+  // Rep Drop-off Rate
+  // DropOff = (Reps_set_1 - Reps_set_n) / Reps_set_1
+  static double calculateDropOffRate(List<int> reps) {
+    if (reps.isEmpty || reps.first <= 0) return 0.0;
+    int firstRep = reps.first;
+    int lastRep = reps.last;
+    return (firstRep - lastRep) / firstRep.toDouble();
+  }
+
+  // ACWR (Acute-to-Chronic Workload Ratio)
+  // ACWR = Current session volume / Average volume of the previous 4 training sessions
+  static double calculateACWR(double currentVolume, List<double> past4Volumes) {
+    if (past4Volumes.isEmpty) return 1.0; // Default to equilibrium
+    double avgPastVolume =
+        past4Volumes.reduce((a, b) => a + b) / past4Volumes.length;
+    if (avgPastVolume <= 0) return 1.0;
+    return currentVolume / avgPastVolume;
   }
 }

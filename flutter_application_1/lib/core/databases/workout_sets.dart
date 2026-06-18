@@ -1,10 +1,12 @@
 import 'package:drift/drift.dart';
+import 'package:flutter_application_1/core/databases/exercises.dart';
+
 
 class WorkoutSets extends Table {
   TextColumn get id => text()();
 
   TextColumn get sessionId => text()();
-  TextColumn get exerciseId => text()();
+  TextColumn get exerciseId => text().references(Exercises, #id)();
 
   IntColumn get setNumber => integer().check(setNumber.isBiggerOrEqualValue(0))();
   RealColumn get weight => real().check(weight.isBiggerOrEqualValue(0))();

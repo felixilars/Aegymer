@@ -5,10 +5,10 @@ class UserProfiles extends Table {
 
   TextColumn get email => text().nullable()();
   TextColumn get gender => text()();
-  IntColumn get age => integer().check(age.isBiggerOrEqualValue(0))();
+  IntColumn get age => integer().customConstraint('NOT NULL CHECK (age >= 0)')();
 
-  RealColumn get weight => real().check(weight.isBiggerOrEqualValue(0))();
-  RealColumn get height => real().check(height.isBiggerOrEqualValue(0))();
+  RealColumn get weight => real().customConstraint('NOT NULL CHECK (weight >= 0)')();
+  RealColumn get height => real().customConstraint('NOT NULL CHECK (height >= 0)')();
 
   TextColumn get activityLevel => text()();
   TextColumn get target => text()();

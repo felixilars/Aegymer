@@ -12,6 +12,9 @@ class Exercises extends Table {
   // Is this a user-added assignment or a sample assignment synchronized from the system?
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
 
+  TextColumn get trackingType => text().nullable()();
+  TextColumn get secondaryTrackingTypes => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

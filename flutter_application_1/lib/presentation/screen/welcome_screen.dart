@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/helper/check_firsttime.dart';
-import 'package:flutter_application_1/presentation/screen/workout_log_screen.dart';
 import 'package:flutter_application_1/presentation/welcome_page.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -51,12 +49,11 @@ class WelcomeScreen extends StatelessWidget {
                 height: 55,
                 child: ElevatedButton(
                   onPressed: () async {
-                    await CheckFirstTime.setFirstTime(false);
 
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const WorkoutLogScreen(),
+                        builder: (_) => const WelcomePage(),
                       ),
                     );
                   },

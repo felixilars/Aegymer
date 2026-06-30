@@ -14,7 +14,7 @@ import 'package:drift/drift.dart' hide Column;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  CheckFirstTime.setFirstTime(true); // Reset first-time flag for testing 
+  CheckFirstTime.setFirstTime(false); // Reset first-time flag for testing 
   runApp(const MyApp());
 }
 
@@ -167,7 +167,7 @@ class MyApp extends StatelessWidget {
           if (snapshot.hasData && snapshot.data == true) {
             return const WelcomeScreen();
           }
-          return const Homepage();
+          return const WorkoutLogScreen();
         },
       ),
     );

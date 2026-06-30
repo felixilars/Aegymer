@@ -48,6 +48,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   drift_flutter: ^0.2.8
+  smooth_page_indicator: ^1.2.1
 
   #Check if it is the first time user open app 
   shared_preferences: ^2.2.2

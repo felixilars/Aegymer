@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_application_1/helper/check_firsttime.dart';
+import 'package:flutter_application_1/core/databases/app_database.dart';
 import 'package:flutter_application_1/presentation/homepage.dart';
-import 'package:flutter_application_1/core/utils/workout_cal.dart';
-
-
+import 'package:drift/drift.dart' as drift;
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -12,107 +13,75 @@ class WelcomePage extends StatefulWidget {
 }
 
 class _WelcomePageState extends State<WelcomePage> {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: GestureDetector(
-        onTap: () async{
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const Homepage()),
-          );
-        },
-        child: Container(
-          height: 200,
-          padding: const EdgeInsets.all(8),
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(5),
-            color: const Color.fromARGB(255, 184, 151, 46),
-          ),
-          child: const Center(
-            child: DefaultTextStyle(
-              style: TextStyle(
-                fontSize: 20,
-                color: Color.fromARGB(255, 83, 48, 48),
-              ),
-              child: Text('Hello world'),
-            )
-          ),
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  String? _selectedGender;
+  final _ageController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _activityController = TextEditingController();
+  final _targetController = TextEditingController();
+  final _preferencesController = TextEditingController();
+
+  final _db = AppDatabase();
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    try {
+      final profile = UserProfilesCompanion.insert(
+        id: 'local-profile',
+        email: drift.Value(
+          _emailController.text.trim().isEmpty
+              ? null
+              : _emailController.text.trim(),
         ),
-      ),
-    );
-  }
-}
-
-
-
-
-class WorkoutLogScreen extends StatefulWidget {
-  const WorkoutLogScreen({super.key});
-
-  @override
-  State<WorkoutLogScreen> createState() => _WorkoutLogScreenState();
-}
-
-class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
-  final email = TextEditingController();
-  final List<String> gender = ["Male","Female","Other"];
-  final age = TextEditingController();
-  
-
-  
-  final weightsController = TextEditingController();
-  final repsController = TextEditingController();
-
-  double caloriesBurned = 0;
-  double e1rm = 0;
-
-  void calculateCalories() {
-    double bodyweight =
-        double.tryParse(bodyweightController.text) ?? 0;
-
-    int duration =
-        int.tryParse(durationController.text) ?? 0;
-
-    double met =
-        double.tryParse(metController.text) ?? 0;
-
-    setState(() {
-      caloriesBurned =
-          WorkoutCalculator.calculateCaloriesBurned(
-        bodyweightKg: bodyweight,
-        durationMinutes: duration,
-        met: met,
+        gender: _selectedGender ?? 'Other',
+        age: int.parse(_ageController.text.trim()),
+        weight: double.parse(_weightController.text.trim()),
+        height: double.parse(_heightController.text.trim()),
+        activityLevel: _activityController.text.trim(),
+        target: _targetController.text.trim(),
+        preferences: drift.Value(
+          _preferencesController.text.trim().isEmpty
+              ? null
+              : _preferencesController.text.trim(),
+        ),
       );
-    });
+
+      await _db.into(_db.userProfiles).insertOnConflictUpdate(profile);
+      await CheckFirstTime.setFirstTime(false);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile saved successfully')),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const Homepage()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save profile: $e')),
+      );
+    }
   }
-
-  void calculateE1RM() {
-    double weight =
-        double.tryParse(weightsController.text) ?? 0;
-
-    int reps =
-        int.tryParse(repsController.text) ?? 0;
-
-    double met =
-        double.tryParse(metController.text) ?? 0;
-
-    setState(() {
-      e1rm = WorkoutCalculator.calculateE1RM(weight, reps);
-    });
-  }
-
- 
-
 
   @override
   void dispose() {
-    bodyweightController.dispose();
-    durationController.dispose();
-    metController.dispose();
-    weightsController.dispose();
-    repsController.dispose();
+    _emailController.dispose();
+    _ageController.dispose();
+    _weightController.dispose();
+    _heightController.dispose();
+    _activityController.dispose();
+    _targetController.dispose();
+    _preferencesController.dispose();
+    _db.close();
     super.dispose();
   }
 
@@ -120,100 +89,181 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("workout_log_screen"),
+        title: const Text('Create Your Profile'),
+        centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: bodyweightController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Bodyweight (kg)",
-                border: OutlineInputBorder(),
-              ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tell us about yourself',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'This information will be stored locally on your device.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+
+                _buildTextField(
+                  controller: _emailController,
+                  label: 'Email',
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                DropdownButtonFormField<String>(
+                  value: _selectedGender,
+                  decoration: const InputDecoration(
+                    labelText: 'Gender',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Male', child: Text('Male')),
+                    DropdownMenuItem(value: 'Female', child: Text('Female')),
+                    DropdownMenuItem(value: 'Other', child: Text('Other')),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedGender = value;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please select your gender';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                _buildTextField(
+                  controller: _ageController,
+                  label: 'Age',
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your age';
+                    }
+                    if (int.tryParse(value.trim()) == null) {
+                      return 'Please enter a valid number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                _buildTextField(
+                  controller: _weightController,
+                  label: 'Weight (kg)',
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your weight';
+                    }
+                    if (double.tryParse(value.trim()) == null) {
+                      return 'Please enter a valid number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                _buildTextField(
+                  controller: _heightController,
+                  label: 'Height (cm)',
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your height';
+                    }
+                    if (double.tryParse(value.trim()) == null) {
+                      return 'Please enter a valid number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                _buildTextField(
+                  controller: _activityController,
+                  label: 'Activity Level',
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your activity level';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                _buildTextField(
+                  controller: _targetController,
+                  label: 'Target',
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your target';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                _buildTextField(
+                  controller: _preferencesController,
+                  label: 'Preferences',
+                  hintText: 'e.g. vegetarian, no seafood',
+                ),
+                const SizedBox(height: 32),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _saveProfile,
+                    child: const Text('Okay'),
+                  ),
+                ),
+              ],
             ),
-
-            const SizedBox(height: 15),
-
-            TextField(
-              controller: durationController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Duration (minutes)",
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            TextField(
-              controller: metController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "met",
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            ElevatedButton(
-              onPressed: calculateCalories,
-              child: const Text("Calculate"),
-            ),
-
-            const SizedBox(height: 25),
-
-            Text(
-              "Calories Burned: ${caloriesBurned.toStringAsFixed(2)} kcal",
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            TextField(
-              controller: weightsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Weight (kg)",
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            TextField(
-              controller: repsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Reps",
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            ElevatedButton(
-              onPressed: calculateE1RM,
-              child: const Text("Calculate E1RM"),
-            ),
-
-            const SizedBox(height: 25),
-
-            Text(
-              "1 rep max: ${e1rm.toStringAsFixed(1)}",
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            )
-          ],
+          ),
         ),
-        
       ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    String? hintText,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        border: const OutlineInputBorder(),
+      ),
+      validator: validator,
     );
   }
 }

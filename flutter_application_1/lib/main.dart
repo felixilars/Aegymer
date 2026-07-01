@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_application_1/presentation/screen/welcome_screen.dart';
 import 'package:flutter_application_1/presentation/screen/workout_log_screen.dart';
 import 'package:flutter_application_1/presentation/homepage.dart';
@@ -15,6 +16,11 @@ import 'package:drift/drift.dart' hide Column;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   CheckFirstTime.setFirstTime(false); // Reset first-time flag for testing 
+
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]); // Lock the app to portrait mode
+
   runApp(const MyApp());
 }
 

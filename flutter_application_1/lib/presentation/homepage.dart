@@ -48,6 +48,7 @@ class _HomepageState extends State<Homepage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      //AppBar
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.account_circle),
@@ -83,12 +84,15 @@ class _HomepageState extends State<Homepage> {
         elevation: 4.0,
         centerTitle: false,
       ),
+      //AppBBar
       body: Column(
         children: [
           SizedBox(
             height: 250,
             child: PageView(
               controller: _controller,
+
+              // Tabs in the PageView
               children: [
                 SizedBox(
                   width: double.infinity,
@@ -147,49 +151,44 @@ class _HomepageState extends State<Homepage> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Row(
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
-                                      Icon(
+                                      const Icon(
                                         Icons.local_fire_department,
                                         color: Colors.red,
                                         size: 30,
                                       ),
-                                      SizedBox(width: 8),
-                                      Text(
+
+                                      const SizedBox(width: 8),
+
+                                      const Text(
                                         "3 days",
                                         style: TextStyle(
-                                          color: Colors.black,
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  const Text(
-                                    "Record your workouts daily to maintain your streak and achieve your fitness goals!",
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton(
-                                      onPressed: () {},
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF2E3A59),
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(20),
+
+                                      const SizedBox(width: 16),
+
+                                      const Expanded(
+                                        child: Text(
+                                          "Record your workouts daily to maintain your streak and achieve your fitness goals!",
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                          ),
                                         ),
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                       ),
-                                      child: const Text("Record Workout"),
-                                    ),
-                                  ),
+
+                                      const SizedBox(width: 16),
+
+                                      ElevatedButton(
+                                        onPressed: () {},
+                                        child: const Text("Record Workout"),
+                                      ),
+                                    ],
+                                  )
                                 ],
                               )
                             else
@@ -257,6 +256,7 @@ class _HomepageState extends State<Homepage> {
                 const Placeholder(),
                 const Placeholder(),
               ],
+              // Tabs in the PageView
             ),
           ),
 

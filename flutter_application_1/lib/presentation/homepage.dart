@@ -94,118 +94,162 @@ class _HomepageState extends State<Homepage> {
                   width: double.infinity,
                   child: Container(
                     color: const Color.fromARGB(255, 201, 178, 178),
-                    padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 30),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    padding: const EdgeInsets.all(16),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 360;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  "Your streak",
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                const Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Your streak",
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      "Keep it going!",
+                                      style: TextStyle(
+                                        color: Colors.black54,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(height: 4),
-                                Text(
-                                  "Keep it going!",
-                                  style: TextStyle(
-                                    color: Colors.black54,
-                                    fontSize: 13,
+                                GestureDetector(
+                                  onTap: () {
+                                    // Navigate to the user profile or schedule page
+                                  },
+                                  child: const Text(
+                                    "See your schedule",
+                                    style: TextStyle(
+                                      color: Color.fromARGB(255, 55, 38, 63),
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      decoration: TextDecoration.underline,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            GestureDetector(
-                              onTap: () {
-                                // Navigate to the user profile or schedule page
-                              },
-                              child: const Text(
-                                "See your schedule",
-                                style: TextStyle(
-                                  color: Color.fromARGB(255, 55, 38, 63),
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.only(left: 30),
-                              width: 100,
-                              height: 100,
-                              
-                              child: Column(children: [
-                              const Icon(
-                                Icons.whatshot, 
-                                color: Colors.red, 
-                                size: 40
-                              ),
-                              const SizedBox(height: 4),
-                              
-                                
-                                
-                              const Text(
-                                  "3 days",
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
+                            const SizedBox(height: 16),
+                            if (isNarrow)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.local_fire_department,
+                                        color: Colors.red,
+                                        size: 30,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        "3 days",
+                                        style: TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              
-
-                            ],
-                            ),
-                            ),
-                            const SizedBox(width: 20),
-
-
-
-
-
-
-                            
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  "Record your workouts daily to maintain your streak and achieve your fitness goals!",
-                                  style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,    
-                                ),
-                                ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    "Record your workouts daily to maintain your streak and achieve your fitness goals!",
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: () {},
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF2E3A59),
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                      ),
+                                      child: const Text("Record Workout"),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.6),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: const Column(
+                                      children: [
+                                        Icon(
+                                          Icons.local_fire_department,
+                                          color: Colors.red,
+                                          size: 30,
+                                        ),
+                                        SizedBox(height: 6),
+                                        Text(
+                                          "3 days",
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: const Text(
+                                      "Record your workouts daily to maintain your streak and achieve your fitness goals!",
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  ElevatedButton(
+                                    onPressed: () {},
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF2E3A59),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    ),
+                                    child: const Text("Record Workout"),
+                                  ),
+                                ],
                               ),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF2E3A59),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              ),
-                              child: const Text("Record Workout"),
-                            ),
                           ],
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
                 ),

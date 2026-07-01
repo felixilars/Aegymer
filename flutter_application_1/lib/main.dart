@@ -3,10 +3,8 @@ import 'package:flutter_application_1/presentation/screen/welcome_screen.dart';
 import 'package:flutter_application_1/presentation/screen/workout_log_screen.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_application_1/core/services/sync_service.dart';
 import 'package:flutter_application_1/core/services/backup_service.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/presentation/homepage.dart';
 import 'package:flutter_application_1/helper/check_firsttime.dart';
 
 

@@ -49,7 +49,39 @@ class _HomepageState extends State<Homepage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Homepage'),
+        leading: IconButton(
+          icon: const Icon(Icons.account_circle),
+          onPressed: () {
+            // Open drawer action
+          },
+        ),
+        title: Center(
+          child: Text(
+            'Aegyme',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              // Handle search operation
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              // Handle notification view
+            },
+          ),
+        ],
+        backgroundColor: const Color.fromARGB(255, 156, 158, 168),
+        elevation: 4.0,
+        centerTitle: false,
       ),
       body: Column(
         children: [
@@ -57,18 +89,129 @@ class _HomepageState extends State<Homepage> {
             height: 250,
             child: PageView(
               controller: _controller,
-              children: const [
+              children: [
                 SizedBox(
-                  child: Center(
-                    child: Text(
-                      'Welcome to Aegyme!',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  width: double.infinity,
+                  child: Container(
+                    color: const Color.fromARGB(255, 201, 178, 178),
+                    padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 30),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Your streak",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  "Keep it going!",
+                                  style: TextStyle(
+                                    color: Colors.black54,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                // Navigate to the user profile or schedule page
+                              },
+                              child: const Text(
+                                "See your schedule",
+                                style: TextStyle(
+                                  color: Color.fromARGB(255, 55, 38, 63),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.only(left: 30),
+                              width: 100,
+                              height: 100,
+                              
+                              child: Column(children: [
+                              const Icon(
+                                Icons.whatshot, 
+                                color: Colors.red, 
+                                size: 40
+                              ),
+                              const SizedBox(height: 4),
+                              
+                                
+                                
+                              const Text(
+                                  "3 days",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              
+
+                            ],
+                            ),
+                            ),
+                            const SizedBox(width: 20),
+
+
+
+
+
+
+                            
+                            Expanded(
+                              child: Center(
+                                child: Text(
+                                  "Record your workouts daily to maintain your streak and achieve your fitness goals!",
+                                  style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,    
+                                ),
+                                ),
+                              ),
+                            ),
+                            ElevatedButton(
+                              onPressed: () {
+
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2E3A59),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              ),
+                              child: const Text("Record Workout"),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                Placeholder(),
-                Placeholder(),
-                Placeholder(),
+                const Placeholder(),
+                const Placeholder(),
+                const Placeholder(),
               ],
             ),
           ),

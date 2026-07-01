@@ -167,7 +167,7 @@ class MyApp extends StatelessWidget {
           if (snapshot.hasData && snapshot.data == true) {
             return const WelcomeScreen();
           }
-          return const WorkoutLogScreen();
+          return const Homepage();
         },
       ),
     );

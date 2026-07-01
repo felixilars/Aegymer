@@ -58,7 +58,14 @@ class _HomepageState extends State<Homepage> {
             child: PageView(
               controller: _controller,
               children: const [
-                Placeholder(),
+                SizedBox(
+                  child: Center(
+                    child: Text(
+                      'Welcome to Aegyme!',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
                 Placeholder(),
                 Placeholder(),
                 Placeholder(),

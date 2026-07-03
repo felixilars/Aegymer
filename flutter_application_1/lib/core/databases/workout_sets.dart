@@ -1,10 +1,14 @@
 import 'package:drift/drift.dart';
+import 'package:flutter_application_1/core/databases/exercises.dart';
+import 'package:flutter_application_1/core/databases/workout_sessions.dart';
+
+
 
 class WorkoutSets extends Table {
   TextColumn get id => text()();
 
-  TextColumn get sessionId => text()();
-  TextColumn get exerciseId => text()();
+  TextColumn get sessionId => text().references(WorkoutSessions, #id)();
+  TextColumn get exerciseId => text().references(Exercises, #id)();
 
   IntColumn get setNumber => integer().customConstraint('NOT NULL CHECK (set_number >= 0)')();
   RealColumn get weight => real().customConstraint('NOT NULL CHECK (weight >= 0)')();

@@ -164,6 +164,10 @@ class AppDatabase extends _$AppDatabase {
         // database files in `getApplicationDocumentsDirectory()`.
         databaseDirectory: getApplicationSupportDirectory,
       ),
+      web: DriftWebOptions(
+      sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+      driftWorker: Uri.parse('drift_worker.dart.js'),
+    ),
       // If you need web support, see https://drift.simonbinder.eu/platforms/web/
     );
   }

@@ -11,11 +11,27 @@ class SyncService {
   // Sync exercises from Cloud to Local
   Future<void> syncExercisesFromCloud() async {
     try {
-      final response = await _supabase.from('global_exercises').select();
-      final List<dynamic> data = response as List<dynamic>;
+      List<dynamic> allData = [];
+      int offset = 0;
+      const int limit = 1000;
+      bool hasMore = true;
+
+      while (hasMore) {
+        final response = await _supabase
+            .from('global_exercises')
+            .select()
+            .range(offset, offset + limit - 1);
+        final List<dynamic> data = response as List<dynamic>;
+        allData.addAll(data);
+        if (data.length < limit) {
+          hasMore = false;
+        } else {
+          offset += limit;
+        }
+      }
 
       await _db.transaction(() async {
-        for (var item in data) {
+        for (var item in allData) {
           await _db
               .into(_db.exercises)
               .insertOnConflictUpdate(
@@ -29,11 +45,19 @@ class SyncService {
                   isCustom: const Value(
                     false,
                   ), // Global data so isCustom = false
+                  trackingType: Value(item['tracking_type'] as String?),
+                  secondaryTrackingTypes: Value(
+                    item['tracking_types'] != null
+                        ? (item['tracking_types'] is List
+                            ? (item['tracking_types'] as List).join(',')
+                            : item['tracking_types'].toString())
+                        : null,
+                  ),
                 ),
               );
         }
       });
-      print('Sync exercises completed successfully.');
+      print('Sync exercises completed successfully. Total synced: ${allData.length}');
     } catch (e) {
       print('Failed to sync exercises: $e');
     }
@@ -42,11 +66,27 @@ class SyncService {
   // Sync foods from Cloud to Local
   Future<void> syncFoodsFromCloud() async {
     try {
-      final response = await _supabase.from('global_foods').select();
-      final List<dynamic> data = response as List<dynamic>;
+      List<dynamic> allData = [];
+      int offset = 0;
+      const int limit = 1000;
+      bool hasMore = true;
+
+      while (hasMore) {
+        final response = await _supabase
+            .from('global_foods')
+            .select()
+            .range(offset, offset + limit - 1);
+        final List<dynamic> data = response as List<dynamic>;
+        allData.addAll(data);
+        if (data.length < limit) {
+          hasMore = false;
+        } else {
+          offset += limit;
+        }
+      }
 
       await _db.transaction(() async {
-        for (var item in data) {
+        for (var item in allData) {
           await _db
               .into(_db.foods)
               .insertOnConflictUpdate(
@@ -63,7 +103,7 @@ class SyncService {
               );
         }
       });
-      print('Sync foods completed successfully.');
+      print('Sync foods completed successfully. Total synced: ${allData.length}');
     } catch (e) {
       print('Failed to sync foods: $e');
     }

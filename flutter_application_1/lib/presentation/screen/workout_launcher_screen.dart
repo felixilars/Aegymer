@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
 import 'package:flutter_application_1/presentation/screen/routine_editor_screen.dart';
 import 'package:flutter_application_1/presentation/screen/active_workout_screen.dart';
+import 'package:flutter_application_1/presentation/homepage.dart';
 
 class WorkoutLauncherScreen extends StatefulWidget {
   final AppDatabase db;
@@ -14,7 +15,7 @@ class WorkoutLauncherScreen extends StatefulWidget {
 
 class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
   List<RoutineWithExercises> _routines = [];
-  UserProfile? _profile;
+  UserProfile? _profile; 
   bool _isLoading = true;
 
   @override
@@ -281,6 +282,19 @@ class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: false,
+        actions: [
+          IconButton(
+            tooltip: 'Back to Home',
+            icon: const Icon(Icons.home),
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const Homepage()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -518,6 +532,7 @@ class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
                                         : Colors.black26,
                                   ),
                                 ),
+                                
                               ],
                             ),
                           ),

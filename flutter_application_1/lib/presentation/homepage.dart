@@ -301,11 +301,10 @@ class _HomepageState extends State<Homepage> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () async {
-
-                    Navigator.pushReplacement(
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => WorkoutLauncherScreen(db : _db),
+                        builder: (_) => WorkoutLauncherScreen(db: _db),
                       ),
                     );
                   },

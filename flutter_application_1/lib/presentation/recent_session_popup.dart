@@ -94,12 +94,16 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                 child: Text('No exercises recorded'),
               )
             else
-              Column(
-                children: _workoutSetsWithExercises.map((item) {
-                  final (set, exercise) = item;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Container(
+              SizedBox(
+                height: 400,
+                child: ListView.builder(
+                  itemCount: _workoutSetsWithExercises.length,
+                  itemBuilder: (context, index) {
+                    final (set, exercise) = _workoutSetsWithExercises[index];
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Container(
                       decoration: BoxDecoration(
                         color: const Color(0xffF5F7FA),
                         borderRadius: BorderRadius.circular(12),
@@ -170,8 +174,9 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                         ],
                       ),
                     ),
-                  );
-                }).toList(),
+                    );
+                  },
+                ),
               ),
             if (_workoutSetsWithExercises.isNotEmpty && widget.session.notes != null && widget.session.notes!.isNotEmpty) ...[
               const SizedBox(height: 16),

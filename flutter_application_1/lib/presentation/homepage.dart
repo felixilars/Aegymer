@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/presentation/screen/workout_launcher_screen.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter_application_1/core/databases/app_database.dart';
 import 'package:flutter_application_1/presentation/recent_session_popup.dart';
-
 // Color Palette
 const backgroundColor = Color(0xffF5F7FA);
 const cardColor = Colors.white;
@@ -300,7 +300,15 @@ class _HomepageState extends State<Homepage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () async {
+
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => WorkoutLauncherScreen(db : _db),
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.add),
                   label: const Text('Record Workout'),
                   style: ElevatedButton.styleFrom(

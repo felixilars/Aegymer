@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/helper/check_firsttime.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/presentation/homepage.dart';
+import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
 import 'package:drift/drift.dart' as drift;
 
 class WelcomePage extends StatefulWidget {
@@ -62,7 +62,7 @@ class _WelcomePageState extends State<WelcomePage> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const Homepage()),
+        MaterialPageRoute(builder: (_) => const MainPage()),
       );
     } catch (e) {
       if (!mounted) return;

@@ -77,7 +77,7 @@ class _MainPageState extends State<MainPage> {
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home),
-            label: "Home",
+            label: "Homehahahaha",
           ),
           NavigationDestination(
             icon: Icon(Icons.restaurant_menu),

@@ -140,6 +140,32 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                             ),
                           ),
                           const SizedBox(height: 12),
+
+                          Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: const [
+                                  Text(
+                                    'Reps',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xff6B7280),
+                                    ),
+                                  ),
+                                  Text(
+                                    'Weight (kg)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xff6B7280),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 4),
                           Column(
                             children: exerciseWithSets.sets.map((set) {
                               return 
@@ -148,15 +174,8 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                                 children: [
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Reps',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xff6B7280),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
+                                    children: [   
+                                      
                                       Text(
                                         '${set.reps}',
                                         style: const TextStyle(
@@ -170,14 +189,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
-                                        'Weight (kg)',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xff6B7280),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
+                                      
                                       Text(
                                         '${set.weight}',
                                         style: const TextStyle(

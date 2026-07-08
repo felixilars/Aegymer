@@ -13,7 +13,12 @@ const textColor = Color(0xff1F2937);
 const subtitleColor = Color(0xff6B7280);
 
 class Homepage extends StatefulWidget {
-  const Homepage({super.key});
+  final VoidCallback onRecordWorkout;
+
+  const Homepage({
+    super.key,
+    required this.onRecordWorkout,
+  });
 
   @override
   State<Homepage> createState() => _HomepageState();
@@ -65,33 +70,7 @@ class _HomepageState extends State<Homepage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: cardColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.account_circle, color: textColor, size: 28),
-          onPressed: () {},
-        ),
-        title: const Text(
-          'Aegyme',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: textColor,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: textColor),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications, color: textColor),
-            onPressed: () {},
-          ),
-        ],
-      ),
+      
       body: RefreshIndicator(
         onRefresh: _refreshPage,
         
@@ -300,14 +279,7 @@ class _HomepageState extends State<Homepage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () async {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => WorkoutLauncherScreen(db: _db),
-                      ),
-                    );
-                  },
+                  onPressed: widget.onRecordWorkout,
                   icon: const Icon(Icons.add),
                   label: const Text('Record Workout'),
                   style: ElevatedButton.styleFrom(

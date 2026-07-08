@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
 import 'package:flutter_application_1/presentation/screen/welcome_screen.dart';
 import 'package:flutter_application_1/presentation/screen/workout_log_screen.dart';
-import 'package:flutter_application_1/presentation/homepage.dart';
+import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
 
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -173,7 +174,7 @@ class MyApp extends StatelessWidget {
           if (snapshot.hasData && snapshot.data == true) {
             return const WelcomeScreen();
           }
-          return const Homepage();
+          return const MainPage();
         },
       ),
     );

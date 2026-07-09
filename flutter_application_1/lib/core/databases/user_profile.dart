@@ -10,7 +10,7 @@ class UserProfiles extends Table {
   RealColumn get weight => real().customConstraint('NOT NULL CHECK (weight >= 0)')();
   RealColumn get height => real().customConstraint('NOT NULL CHECK (height >= 0)')();
 
-  TextColumn get activityLevel => text()();
+  RealColumn get activityLevel => real()();
   TextColumn get target => text()();
   TextColumn get preferences => text().nullable()();
 

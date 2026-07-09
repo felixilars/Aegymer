@@ -70,11 +70,11 @@ class $UserProfilesTable extends UserProfiles
     'activityLevel',
   );
   @override
-  late final GeneratedColumn<String> activityLevel = GeneratedColumn<String>(
+  late final GeneratedColumn<double> activityLevel = GeneratedColumn<double>(
     'activity_level',
     aliasedName,
     false,
-    type: DriftSqlType.string,
+    type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
   static const VerificationMeta _targetMeta = const VerificationMeta('target');
@@ -226,7 +226,7 @@ class $UserProfilesTable extends UserProfiles
         data['${effectivePrefix}height'],
       )!,
       activityLevel: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
+        DriftSqlType.double,
         data['${effectivePrefix}activity_level'],
       )!,
       target: attachedDatabase.typeMapping.read(
@@ -253,7 +253,7 @@ class UserProfile extends DataClass implements Insertable<UserProfile> {
   final int age;
   final double weight;
   final double height;
-  final String activityLevel;
+  final double activityLevel;
   final String target;
   final String? preferences;
   const UserProfile({
@@ -278,7 +278,7 @@ class UserProfile extends DataClass implements Insertable<UserProfile> {
     map['age'] = Variable<int>(age);
     map['weight'] = Variable<double>(weight);
     map['height'] = Variable<double>(height);
-    map['activity_level'] = Variable<String>(activityLevel);
+    map['activity_level'] = Variable<double>(activityLevel);
     map['target'] = Variable<String>(target);
     if (!nullToAbsent || preferences != null) {
       map['preferences'] = Variable<String>(preferences);
@@ -316,7 +316,7 @@ class UserProfile extends DataClass implements Insertable<UserProfile> {
       age: serializer.fromJson<int>(json['age']),
       weight: serializer.fromJson<double>(json['weight']),
       height: serializer.fromJson<double>(json['height']),
-      activityLevel: serializer.fromJson<String>(json['activityLevel']),
+      activityLevel: serializer.fromJson<double>(json['activityLevel']),
       target: serializer.fromJson<String>(json['target']),
       preferences: serializer.fromJson<String?>(json['preferences']),
     );
@@ -331,7 +331,7 @@ class UserProfile extends DataClass implements Insertable<UserProfile> {
       'age': serializer.toJson<int>(age),
       'weight': serializer.toJson<double>(weight),
       'height': serializer.toJson<double>(height),
-      'activityLevel': serializer.toJson<String>(activityLevel),
+      'activityLevel': serializer.toJson<double>(activityLevel),
       'target': serializer.toJson<String>(target),
       'preferences': serializer.toJson<String?>(preferences),
     };
@@ -344,7 +344,7 @@ class UserProfile extends DataClass implements Insertable<UserProfile> {
     int? age,
     double? weight,
     double? height,
-    String? activityLevel,
+    double? activityLevel,
     String? target,
     Value<String?> preferences = const Value.absent(),
   }) => UserProfile(
@@ -426,7 +426,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfile> {
   final Value<int> age;
   final Value<double> weight;
   final Value<double> height;
-  final Value<String> activityLevel;
+  final Value<double> activityLevel;
   final Value<String> target;
   final Value<String?> preferences;
   final Value<int> rowid;
@@ -449,7 +449,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfile> {
     required int age,
     required double weight,
     required double height,
-    required String activityLevel,
+    required double activityLevel,
     required String target,
     this.preferences = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -467,7 +467,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfile> {
     Expression<int>? age,
     Expression<double>? weight,
     Expression<double>? height,
-    Expression<String>? activityLevel,
+    Expression<double>? activityLevel,
     Expression<String>? target,
     Expression<String>? preferences,
     Expression<int>? rowid,
@@ -493,7 +493,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfile> {
     Value<int>? age,
     Value<double>? weight,
     Value<double>? height,
-    Value<String>? activityLevel,
+    Value<double>? activityLevel,
     Value<String>? target,
     Value<String?>? preferences,
     Value<int>? rowid,
@@ -534,7 +534,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfile> {
       map['height'] = Variable<double>(height.value);
     }
     if (activityLevel.present) {
-      map['activity_level'] = Variable<String>(activityLevel.value);
+      map['activity_level'] = Variable<double>(activityLevel.value);
     }
     if (target.present) {
       map['target'] = Variable<String>(target.value);
@@ -3570,7 +3570,7 @@ typedef $$UserProfilesTableCreateCompanionBuilder =
       required int age,
       required double weight,
       required double height,
-      required String activityLevel,
+      required double activityLevel,
       required String target,
       Value<String?> preferences,
       Value<int> rowid,
@@ -3583,7 +3583,7 @@ typedef $$UserProfilesTableUpdateCompanionBuilder =
       Value<int> age,
       Value<double> weight,
       Value<double> height,
-      Value<String> activityLevel,
+      Value<double> activityLevel,
       Value<String> target,
       Value<String?> preferences,
       Value<int> rowid,
@@ -3628,7 +3628,7 @@ class $$UserProfilesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get activityLevel => $composableBuilder(
+  ColumnFilters<double> get activityLevel => $composableBuilder(
     column: $table.activityLevel,
     builder: (column) => ColumnFilters(column),
   );
@@ -3683,7 +3683,7 @@ class $$UserProfilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get activityLevel => $composableBuilder(
+  ColumnOrderings<double> get activityLevel => $composableBuilder(
     column: $table.activityLevel,
     builder: (column) => ColumnOrderings(column),
   );
@@ -3726,7 +3726,7 @@ class $$UserProfilesTableAnnotationComposer
   GeneratedColumn<double> get height =>
       $composableBuilder(column: $table.height, builder: (column) => column);
 
-  GeneratedColumn<String> get activityLevel => $composableBuilder(
+  GeneratedColumn<double> get activityLevel => $composableBuilder(
     column: $table.activityLevel,
     builder: (column) => column,
   );
@@ -3777,7 +3777,7 @@ class $$UserProfilesTableTableManager
                 Value<int> age = const Value.absent(),
                 Value<double> weight = const Value.absent(),
                 Value<double> height = const Value.absent(),
-                Value<String> activityLevel = const Value.absent(),
+                Value<double> activityLevel = const Value.absent(),
                 Value<String> target = const Value.absent(),
                 Value<String?> preferences = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3801,7 +3801,7 @@ class $$UserProfilesTableTableManager
                 required int age,
                 required double weight,
                 required double height,
-                required String activityLevel,
+                required double activityLevel,
                 required String target,
                 Value<String?> preferences = const Value.absent(),
                 Value<int> rowid = const Value.absent(),

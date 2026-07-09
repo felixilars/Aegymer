@@ -114,7 +114,7 @@ Future<void> runLocalDatabaseAndBackupTests(AppDatabase db) async {
             age: 24,
             weight: 55.0,
             height: 162.0,
-            activityLevel: 'Active',
+            activityLevel: 1.725,
             target: 'Lose Fat',
             preferences: const Value('No Seafood'),
           ),

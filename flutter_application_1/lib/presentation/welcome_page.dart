@@ -42,7 +42,7 @@ class _WelcomePageState extends State<WelcomePage> {
         age: int.parse(_ageController.text.trim()),
         weight: double.parse(_weightController.text.trim()),
         height: double.parse(_heightController.text.trim()),
-        activityLevel: _activityController.text.trim(),
+        activityLevel: double.parse(_activityController.text.trim()),
         target: _targetController.text.trim(),
         preferences: drift.Value(
           _preferencesController.text.trim().isEmpty
@@ -200,12 +200,28 @@ class _WelcomePageState extends State<WelcomePage> {
                 ),
                 const SizedBox(height: 16),
 
-                _buildTextField(
-                  controller: _activityController,
-                  label: 'Activity Level',
+                DropdownButtonFormField<String>(
+                  value: _activityController.text,
+                  decoration: const InputDecoration(
+                    labelText: 'Activity Level',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: '1.2', child: Text('Sedentary (Office Job)')),
+                    DropdownMenuItem(value: '1.375', child: Text('Light Exercise (1-3 days/week)')),
+                    DropdownMenuItem(value: '1.55', child: Text('Moderate Exercise (3-5 days/week)')),
+                    DropdownMenuItem(value: '1.725', child: Text('Active (6-7 days/week)')),
+                    DropdownMenuItem(value: '1.9', child: Text('Athlete (2x/day)')),
+
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _activityController.text = value ?? '';
+                    });
+                  },
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your activity level';
+                    if (value == null || value.isEmpty) {
+                      return 'Please select your activity level';
                     }
                     return null;
                   },

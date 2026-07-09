@@ -100,7 +100,7 @@ void main() {
           age: 26,
           weight: 70.0,
           height: 172.0,
-          activityLevel: 'Active',
+          activityLevel: 1.55,
           target: 'Lose Fat',
           preferences: 'Vegetarian',
         );

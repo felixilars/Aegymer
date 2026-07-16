@@ -133,7 +133,6 @@ class _WelcomePageState extends State<WelcomePage> {
                   items: const [
                     DropdownMenuItem(value: 'Male', child: Text('Male')),
                     DropdownMenuItem(value: 'Female', child: Text('Female')),
-                    DropdownMenuItem(value: 'Other', child: Text('Other')),
                   ],
                   onChanged: (value) {
                     setState(() {

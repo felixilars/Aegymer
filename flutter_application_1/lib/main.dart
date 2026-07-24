@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/presentation/screen/workout_launcher_screen.dart';
+import 'package:flutter_application_1/presentation/screen/knn_demo_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_application_1/core/services/sync_service.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
+import 'package:flutter_application_1/presentation/homepage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +24,7 @@ void main() async {
 
   runApp(MyApp(db: db));
 }
+
 class MyApp extends StatelessWidget {
   final AppDatabase db;
   const MyApp({super.key, required this.db});
@@ -51,7 +54,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,
           brightness: Brightness.light,
-          ),
+        ),
         brightness: Brightness.light,
         useMaterial3: true,
       ),
@@ -63,7 +66,7 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: WorkoutLauncherScreen(db: db),
+      home: const KnnDemoScreen(),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter_application_1/core/databases/app_database.dart';
 import 'package:flutter_application_1/presentation/recent_session_popup.dart';
+import 'package:flutter_application_1/presentation/screen/user_profile_screen.dart';
 
 // Color Palette
 const backgroundColor = Color(0xffF5F7FA);
@@ -13,7 +14,9 @@ const textColor = Color(0xff1F2937);
 const subtitleColor = Color(0xff6B7280);
 
 class Homepage extends StatefulWidget {
-  const Homepage({super.key});
+  final AppDatabase db;
+
+  const Homepage({super.key, required this.db});
 
   @override
   State<Homepage> createState() => _HomepageState();
@@ -21,7 +24,6 @@ class Homepage extends StatefulWidget {
 
 class _HomepageState extends State<Homepage> {
   final PageController _controller = PageController();
-  final AppDatabase _db = AppDatabase();
   List<WorkoutSession> _recentSessions = [];
   bool _loadingSessions = true;
 
@@ -39,7 +41,7 @@ class _HomepageState extends State<Homepage> {
   }
 
   Future<void> _loadRecentSessions() async {
-    final query = _db.select(_db.workoutSessions)
+    final query = widget.db.select(widget.db.workoutSessions)
       ..orderBy([
         (t) => drift.OrderingTerm(expression: t.date, mode: drift.OrderingMode.desc),
       ])
@@ -57,7 +59,7 @@ class _HomepageState extends State<Homepage> {
   @override
   void dispose() {
     _controller.dispose();
-    _db.close();
+    widget.db.close();
     super.dispose();
   }
 
@@ -70,10 +72,20 @@ class _HomepageState extends State<Homepage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.account_circle, color: textColor, size: 28),
-          onPressed: () {},
+          onPressed: () async {
+            final refreshed = await Navigator.of(context).push<bool>(
+              MaterialPageRoute(
+                builder: (_) => UserProfileScreen(db: widget.db),
+              ),
+            );
+
+            if (refreshed == true) {
+              await _loadRecentSessions();
+            }
+          },
         ),
         title: const Text(
-          'Aegyme',
+          'Aegymer',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,

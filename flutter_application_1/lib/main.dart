@@ -95,64 +95,6 @@ Future<void> seedSupabaseCloud() async {
   }
 }
 
-// Test function for local SQLite and Backup Service
-Future<void> runLocalDatabaseAndBackupTests(AppDatabase db) async {
-  print("\n--- TEST LOCAL DATABASE SYSTEM ---");
-
-  // Check if there is already a profile, if not, insert a test one
-  final profiles = await db.select(db.userProfiles).get();
-  if (profiles.isEmpty) {
-    print("Local Database SQLite is empty, inserting sample personal data...");
-
-    // 1. Insert Profile
-    await db
-        .into(db.userProfiles)
-        .insert(
-          UserProfilesCompanion.insert(
-            id: 'my-user-001',
-            gender: 'Female',
-            age: 24,
-            weight: 55.0,
-            height: 162.0,
-            activityLevel: 1.725,
-            target: 'Lose Fat',
-            preferences: const Value('No Seafood'),
-          ),
-        );
-    // 2. Insert a custom exercise created by the user
-    await db
-        .into(db.exercises)
-        .insert(
-          ExercisesCompanion.insert(
-            id: 'my-custom-ex-001',
-            name: 'Incline Pushup (Bench/Chair)',
-            targetMuscle: 'Chest',
-            equipment: 'Bench',
-            isCustom: const Value(true), // isCustom = true
-          ),
-        );
-    print("Sample personal data inserted successfully!");
-  }
-  // Read data again to print to console
-  final currentProfiles = await db.select(db.userProfiles).get();
-  final currentExercises = await db.select(db.exercises).get();
-
-  print("\n=== LOCAL SQLite DATA INFORMATION ===");
-  print(
-    "Current profile: ${currentProfiles.first.gender}, Weight: ${currentProfiles.first.weight} kg, Target: ${currentProfiles.first.target}",
-  );
-  print("Total local exercises: ${currentExercises.length}");
-  for (var ex in currentExercises) {
-    print("  - ${ex.name} (Custom: ${ex.isCustom})");
-  }
-  // 3. Run test export Backup JSON
-  print("\n=== RUN TEST EXPORT BACKUP JSON ===");
-  final backupService = BackupService(db);
-  final backupJson = await backupService.exportBackup();
-  print("Backup JSON file generated:\n$backupJson");
-
-  print("--- END LOCAL DATABASE SYSTEM TEST ---\n");
-}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

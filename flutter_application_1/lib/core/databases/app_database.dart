@@ -10,6 +10,7 @@ import 'package:flutter_application_1/core/databases/exercises.dart';
 import 'package:flutter_application_1/core/databases/food.dart';
 import 'package:flutter_application_1/core/databases/routines.dart';
 import 'package:flutter_application_1/core/databases/routine_exercises.dart';
+import 'package:flutter_application_1/core/databases/meal_items.dart';
 
 part 'app_database.g.dart';
 
@@ -26,6 +27,7 @@ class RoutineWithExercises {
     WorkoutSessions,
     WorkoutSets,
     UserMeals,
+    MealItems,
     Exercises,
     Foods,
     Routines,

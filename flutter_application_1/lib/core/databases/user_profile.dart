@@ -12,8 +12,14 @@ class UserProfiles extends Table {
 
   RealColumn get activityLevel => real()();
   TextColumn get target => text()();
-  TextColumn get preferences => text().nullable()();
 
+  RealColumn get dailyCalories => real()();
+  RealColumn get dailyProtein => real()();
+  RealColumn get dailyCarbs => real()();
+  RealColumn get dailyFat => real()();
+
+  TextColumn get preferences => text().nullable()();
+  
   @override
   Set<Column> get primaryKey => {id};
 }

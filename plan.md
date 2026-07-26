@@ -21,7 +21,7 @@ Hệ thống sẽ ghi nhận lịch sử tập luyện, tính toán năng lượ
 >    - **Phương án dự phòng tràn dung lượng Cloud DB:** Nếu dữ liệu danh mục chung phình to, Supabase sẽ chỉ lưu giữ các mục phổ biến nhất. Các mục ít dùng được truy vấn từ API bên ngoài (Open Food Facts) sẽ chỉ được tải và lưu trữ cục bộ trên thiết bị của người dùng dưới dạng custom food/exercise trong bảng local `FOODS`/`EXERCISES` (với cờ `is_custom = true`), không đồng bộ ngược lại Cloud.
 >    - **Local DB (SQLite - Drift):** Lưu trữ toàn bộ thông tin cá nhân của người dùng (lịch sử tập, nhật ký ăn uống, thể trạng, bài tập/món ăn tự custom). Đảm bảo bảo mật và hoạt động offline hoàn toàn.
 >    - **Giải pháp Sao lưu (Backup):** Người dùng có thể xuất file sao lưu (mã hóa JSON/SQLite) đồng bộ lên tài khoản **Google Drive / iCloud** cá nhân của họ.
-> **4. Phương án Dinh dưỡng & Gợi ý món ăn:** Hoàn toàn **MIỄN PHÍ**. Sử dụng **Thuật toán Heuristic Đa dạng hóa (Diverse Heuristic Matcher)** chạy cục bộ (kết hợp cơ chế phạt tần suất món ăn và lựa chọn ngẫu nhiên có trọng số Softmax) + **Open Food Facts API** (miễn phí, không cần API Key) để đảm bảo thực đơn gợi ý phong phú, không lặp đi lặp lại.
+> **4. Phương án Dinh dưỡng & Gợi ý món ăn:** Hoàn toàn **MIỄN PHÍ**. Sử dụng **Thuật toán Phân bổ Trọng số Theo Khung Giờ & Chấm điểm Đa Mục tiêu (Dynamic Time-Weighted Slot Allocation + Soft Penalty Scoring - DTWSA)** chạy cục bộ (không bắt user khai báo số bữa hay dồn 100% calo dư vào 1 món, tự động co giãn định lượng $\alpha$ và phân bổ calo mượt mà) + **Open Food Facts API** (miễn phí, không cần API Key) để gợi ý món ăn/combo cân bằng hoàn toàn offline.
 > **5. Thuật toán ML Autoregulation:** Tích hợp mô hình toán học khách quan (Volume Load, Drop-off rate, ACWR, APRE) không sử dụng chỉ số RPE. Sử dụng mô hình **Hồi quy Tuyến tính có phạt (Ridge Regression)** huấn luyện và dự báo trực tiếp cục bộ trên điện thoại bằng Dart nhằm tối ưu hiệu năng và bảo mật, kèm lộ trình nâng cấp lên XGBoost trong tương lai.
 
 ---
@@ -252,15 +252,25 @@ Khi cơ sở dữ liệu local tích lũy đủ lịch sử tập luyện của 
     *   Protein: Từ 1.8g đến 2.2g trên mỗi kg cân nặng cơ thể (ví dụ: người 70kg cần 126g - 154g Protein).
     *   Fat: Từ 20% đến 25% tổng Calo_mục_tiêu (1g Fat giải phóng 9 kcal).
     *   Carbs: Phần calo còn lại sau khi trừ đi calo từ Protein và Fat sẽ dành cho Carbs (1g Carb giải phóng 4 kcal).
-*   **Bước 3: Thuật toán Heuristic Đa dạng hóa (Diverse Heuristic Matcher - Không dùng API trả phí):**
-    *   **Cơ chế tìm kiếm nguồn:** Kết hợp tìm kiếm ngoại tuyến từ CSDL local `FOODS` và gọi API miễn phí **Open Food Facts API** (không cần API Key) để quét mã vạch hoặc tra cứu dinh dưỡng sản phẩm.
-    *   **Phân nhóm nguyên liệu (Categorization):** Phân mảnh danh mục món ăn thành các nhóm chức năng chính (Nguồn Carb, Nguồn Protein, Nguồn Fat tốt, Rau xanh/Xơ) để đảm bảo cơ cấu bữa ăn cân đối.
-    *   **Bộ lọc cứng (Hard Filters):** Lọc bỏ lập tức các món ăn vi phạm quy tắc dị ứng hoặc chế độ ăn kiêng của người dùng.
-    *   **Giải thuật Khớp Dinh dưỡng có Đa dạng hóa (Local Matcher Algorithm):**
-        *   Tính toán vector dinh dưỡng còn thiếu trong ngày: Target_Vector = [Calo_cần_thêm, Protein_cần_thêm, Carbs_cần_thêm, Fat_cần_thêm].
-        *   **Cơ chế Phạt tần suất (Frequency Penalty):** Duy trì bản đồ lịch sử ăn uống 7 ngày. Mỗi lần một nguyên liệu/món ăn được log hoặc gợi ý thành công, điểm phạt tần suất của nó sẽ tăng lên, cộng trực tiếp vào khoảng cách Euclidean giữa dinh dưỡng của món ăn và Target_Vector. Điều này giúp các món ít ăn hơn được ưu tiên gợi ý lên đầu.
-        *   **Lựa chọn ngẫu nhiên có trọng số (Weighted Softmax Selection):** Thay vì luôn chọn món có độ khớp cao nhất tuyệt đối (gây lặp lại nhàm chán), thuật toán lấy TOP 5 món phù hợp nhất, chuẩn hóa độ khớp thành phân phối xác suất qua hàm Softmax, và sử dụng phép chọn ngẫu nhiên có trọng số để đưa ra thực đơn đa dạng mỗi ngày.
-        *   Áp dụng giải thuật Knapsack Heuristic đơn giản để phối hợp các món được chọn thành thực đơn hoàn chỉnh khớp tối đa mục tiêu ngày.
+*   **Bước 3: Thuật toán Gợi ý Dinh dưỡng Cục bộ (Dynamic Time-Weighted Slot Allocation + Soft Penalty Scoring - DTWSA):**
+    *   **Cơ chế tìm kiếm nguồn:** Kết hợp CSDL local `FOODS` và **Open Food Facts API** (miễn phí, tra cứu barcode/tên món khi online).
+    *   **Phân nhóm & Bộ lọc cứng (Hard Filters):** Phân loại thực phẩm (Carb, Protein, Fat, Xơ, Trái cây) và lọc bỏ ngay lập tức các món vi phạm chế độ dị ứng/kiêng kị của user.
+    *   **Phân bổ Ngân sách Động theo Khung Giờ (Dynamic Slot Budgeting):**
+        *   Chia 24h thành các khung giờ sinh học: Sáng (06:00-10:30, $W=0.25$), Trưa (10:30-14:00, $W=0.35$), Xế (14:00-17:30, $W=0.10$), Tối (17:30-21:00, $W=0.30$), Đêm (21:00+, $W=0.05$).
+        *   Tự động xác định các khung giờ còn lại $\mathcal{S}_{remain}$ từ thời điểm hiện tại và tính tỷ trọng bữa hiện tại: $\text{Ratio}_{current} = \frac{W_{current}}{\sum_{s \in \mathcal{S}_{remain}} W_s}$.
+        *   Ngân sách bữa hiện tại: $TargetCalo_{slot} = RemainingCalo_{day} \times \text{Ratio}_{current}$. Không ép user khai báo số bữa và tránh việc dồn toàn bộ calo dư vào 1 món.
+    *   **Hệ số Tự động Co giãn Khẩu phần (Portion Auto-Scaling Factor $\alpha$):**
+        *   Tự động điều chỉnh khẩu phần món ăn với hệ số $\alpha_i = \text{Clamp}\left(\frac{TargetCalo_{slot}}{C_i}, 0.5, 2.0\right)$, gợi ý sinh động (như "1.5 suất phở" hoặc "0.8 suất cơm tấm").
+    *   **Chấm điểm Đa Mục tiêu Mềm (Multi-Objective Soft-Penalty Scoring):**
+        *   $Score(i) = S_{calo}(i) + w_m \cdot S_{macro}(i) + w_t \cdot S_{time}(i) - w_r \cdot Penalty_{recency}(i) + S_{pref}(i)$
+        *   $S_{calo}(i) = 100 \times \exp\left(-\frac{(C'_i - TargetCalo_{slot})^2}{2 \sigma^2}\right)$ (Phạt mượt Gauss nếu lệch calo bữa).
+        *   $S_{macro}(i)$: Ưu tiên bù đắp các chất dinh dưỡng (Protein/Carb/Fat) đang thiếu hụt nhiều nhất trong ngày.
+        *   $S_{time}(i)$: Ưu tiên món ăn phù hợp với khung giờ (Sáng vs. Trưa/Tối vs. Xế).
+        *   $Penalty_{recency}(i)$: Trừ điểm nếu món đã ăn trong 24h-48h gần nhất để đổi món liên tục.
+        *   $S_{pref}(i)$: Cộng điểm cho món ăn yêu thích/custom.
+    *   **Chế độ Đề xuất Đôi (Single Item & Balanced Combo Builder):**
+        *   *Single Item:* Trả về món đơn lẻ có điểm $Score(i)$ cao nhất kèm hệ số khẩu phần $\alpha_i$.
+        *   *Balanced Combo:* Phối hợp 1 Món Tinh bột + 1 Món Đạm + 1 Món Rau bằng giải thuật Greedy Knapsack siêu nhẹ (chạy hoàn toàn offline trên Dart/SQLite trong < 5ms).
 
 ---
 
@@ -283,7 +293,7 @@ Khi cơ sở dữ liệu local tích lũy đủ lịch sử tập luyện của 
 - [ ] Thiết lập màn hình khảo sát thể trạng (Gender, Weight, Age, Height, Activity) để tính toán tự động TDEE & Macro.
 - [ ] Phát triển màn hình cấu hình sở thích (Preferences): ăn chay, hạn chế ngọt, dị ứng gluten/hải sản...
 - [ ] Tích hợp **Open Food Facts API** (miễn phí, không key) để tìm kiếm thực phẩm trực tuyến và quét mã vạch.
-- [ ] Phát triển thuật toán gợi ý cục bộ (Heuristic Matcher) để tự động đề xuất, phối món ăn dựa trên lượng Calo/Macro còn lại trong ngày của người dùng và sở thích ăn uống.
+- [ ] Phát triển thuật toán gợi ý cục bộ **DTWSA (Dynamic Time-Weighted Slot Allocation + Soft Penalty Scoring)** để tự động phân bổ calo theo khung giờ, co giãn khẩu phần $\alpha$ và đề xuất món/combo cân bằng hoàn toàn offline.
 
 ### Giai đoạn 4: Đánh bóng UI/UX & Kiểm thử (Tuần 4)
 - [ ] Tối ưu hóa giao diện với thiết kế sang trọng (vibrant colors, dark mode, smooth micro-animations).
@@ -300,4 +310,4 @@ Khi cơ sở dữ liệu local tích lũy đủ lịch sử tập luyện của 
 
 ### Kiểm thử Thủ công (Manual Verification)
 *   Mô phỏng người dùng nhập lịch sử tập luyện của 3 buổi liên tục để xác nhận thuật toán Autoregulation đề xuất tạ tăng dần chính xác.
-*   Nhập các mục tiêu Calo/Macro và thiết lập chế độ ăn (ví dụ: còn thiếu 500 kcal, 40g Protein, ăn chay, dị ứng lạc) để kiểm chứng thuật toán gợi ý cục bộ đề xuất đúng thực đơn phù hợp và không vi phạm bộ lọc.
+*   Nhập các mục tiêu Calo/Macro và thiết lập chế độ ăn (ví dụ: còn thiếu 1800 kcal lúc 12:30 PM, ăn chay, dị ứng lạc) để kiểm chứng thuật toán DTWSA tự động phân bổ ngân sách bữa trưa (~840 kcal), tự scale khẩu phần $\alpha$, đề xuất đúng thực đơn/combo phù hợp và không vi phạm bộ lọc.

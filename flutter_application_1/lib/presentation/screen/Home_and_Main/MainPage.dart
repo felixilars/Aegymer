@@ -42,7 +42,7 @@ class _MainPageState extends State<MainPage> {
           _selectedIndex = 2;
         });
       }),
-      const MealPrepPage(),
+      MealPrepPage(db : _db),
       WorkoutLauncherScreen(db: _db),
       const ProfilePage(),
     ];

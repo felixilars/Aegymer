@@ -3,8 +3,8 @@ import 'package:flutter_application_1/core/repositories/MealRepository.dart';
 import 'package:flutter_application_1/core/repositories/UserRepository.dart';
 
 
-class MealService {
-  MealService(this._mealRepository, this._userRepository);
+class MealNutritionService {
+  MealNutritionService(this._mealRepository, this._userRepository);
 
   final MealRepository _mealRepository;
   final UserRepository _userRepository;

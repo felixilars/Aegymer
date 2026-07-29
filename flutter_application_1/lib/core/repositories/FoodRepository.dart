@@ -1,6 +1,9 @@
 import "package:flutter_application_1/core/databases/app_database.dart";
 import 'package:drift/drift.dart';
 import "package:flutter_application_1/core/services/food/openfoodfacts_service.dart";
+import "package:flutter_application_1/core/enums/meal_context.dart";
+import "package:flutter_application_1/core/enums/food_category.dart";
+
 
 class FoodRepository {
   final AppDatabase _db;
@@ -27,6 +30,11 @@ class FoodRepository {
         protein: ingredient.protein,
         carbs: ingredient.carbs,
         fat: ingredient.fat,
+        category: ingredient.category,
+        fiber: ingredient.fiber,
+        sugar: ingredient.sugar,
+        saturatedFat: ingredient.saturatedFat,
+        sodium: ingredient.sodium,
         isCustom: true,
       )).toList();
       await saveFoods(foods);
@@ -43,11 +51,16 @@ class FoodRepository {
       } else {
         final food = Food(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: "Food with barcode $barcode",
-          calories: ingredient.calories,
+          name : ingredient.name,
+          calories: ingredient.calories,  
           protein: ingredient.protein,
           carbs: ingredient.carbs,
           fat: ingredient.fat,
+          category: ingredient.category,
+          fiber: ingredient.fiber,
+          sugar: ingredient.sugar,
+          saturatedFat: ingredient.saturatedFat,
+          sodium: ingredient.sodium,
           isCustom: true,
         );
         await saveFood(food);
@@ -73,6 +86,70 @@ class FoodRepository {
   Future<void> updateFood(Food food){
     return _db.update(_db.foods).replace(food);
   }
+
+  Future<List<Food>> getFoodsByMealContext(MealContext context){
+    const Map<MealContext, List<FoodCategory>> mealCategoryMap = {
+    MealContext.breakfast: [
+      FoodCategory.protein,
+      FoodCategory.fruit,
+      FoodCategory.dairy,
+      FoodCategory.carbohydrate,
+    ],
+
+    MealContext.lunch: [
+      FoodCategory.protein,
+      FoodCategory.vegetable,
+      FoodCategory.carbohydrate,
+      FoodCategory.fat,
+    ],
+
+    MealContext.dinner: [
+      FoodCategory.protein,
+      FoodCategory.vegetable,
+      FoodCategory.carbohydrate,
+      FoodCategory.fat,
+    ],
+
+    MealContext.snack: [
+      FoodCategory.fruit,
+      FoodCategory.dairy,
+      FoodCategory.fat,
+    ],
+  };
+    final categories = mealCategoryMap[context]!;
+
+    return (_db.select(_db.foods)
+          ..where((food) => food.category.isIn(
+                categories.map((e) => e.name).toList(),
+              )))
+        .get();
+  }
+
+
+  Future<List<Food>> getRecentFoods(int days) async {
+  final cutoffDate = DateTime.now().subtract(Duration(days: days));
+
+  final query = _db.select(_db.foods).join([
+    innerJoin(
+      _db.mealItems,
+      _db.mealItems.foodId.equalsExp(_db.foods.id),
+    ),
+    innerJoin(
+      _db.userMeals,
+      _db.userMeals.id.equalsExp(_db.mealItems.mealId),
+    ),
+  ])
+    ..where(_db.userMeals.date.isBiggerOrEqualValue(cutoffDate));
+
+  final rows = await query.get();
+
+  return rows.map((row) => row.readTable(_db.foods)).toList();
+}
+
+
+       
+
+
 
   /// Delete a food
   Future<void> deleteFood(String id){

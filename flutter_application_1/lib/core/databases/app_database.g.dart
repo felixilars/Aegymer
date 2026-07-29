@@ -2921,6 +2921,44 @@ class $FoodsTable extends Foods with TableInfo<$FoodsTable, Food> {
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _fiberMeta = const VerificationMeta('fiber');
+  @override
+  late final GeneratedColumn<double> fiber = GeneratedColumn<double>(
+    'fiber',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sugarMeta = const VerificationMeta('sugar');
+  @override
+  late final GeneratedColumn<double> sugar = GeneratedColumn<double>(
+    'sugar',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _saturatedFatMeta = const VerificationMeta(
+    'saturatedFat',
+  );
+  @override
+  late final GeneratedColumn<double> saturatedFat = GeneratedColumn<double>(
+    'saturated_fat',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sodiumMeta = const VerificationMeta('sodium');
+  @override
+  late final GeneratedColumn<double> sodium = GeneratedColumn<double>(
+    'sodium',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _categoryMeta = const VerificationMeta(
     'category',
   );
@@ -2955,6 +2993,10 @@ class $FoodsTable extends Foods with TableInfo<$FoodsTable, Food> {
     protein,
     carbs,
     fat,
+    fiber,
+    sugar,
+    saturatedFat,
+    sodium,
     category,
     isCustom,
   ];
@@ -3015,6 +3057,41 @@ class $FoodsTable extends Foods with TableInfo<$FoodsTable, Food> {
     } else if (isInserting) {
       context.missing(_fatMeta);
     }
+    if (data.containsKey('fiber')) {
+      context.handle(
+        _fiberMeta,
+        fiber.isAcceptableOrUnknown(data['fiber']!, _fiberMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fiberMeta);
+    }
+    if (data.containsKey('sugar')) {
+      context.handle(
+        _sugarMeta,
+        sugar.isAcceptableOrUnknown(data['sugar']!, _sugarMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sugarMeta);
+    }
+    if (data.containsKey('saturated_fat')) {
+      context.handle(
+        _saturatedFatMeta,
+        saturatedFat.isAcceptableOrUnknown(
+          data['saturated_fat']!,
+          _saturatedFatMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_saturatedFatMeta);
+    }
+    if (data.containsKey('sodium')) {
+      context.handle(
+        _sodiumMeta,
+        sodium.isAcceptableOrUnknown(data['sodium']!, _sodiumMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sodiumMeta);
+    }
     if (data.containsKey('category')) {
       context.handle(
         _categoryMeta,
@@ -3060,6 +3137,22 @@ class $FoodsTable extends Foods with TableInfo<$FoodsTable, Food> {
         DriftSqlType.double,
         data['${effectivePrefix}fat'],
       )!,
+      fiber: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fiber'],
+      )!,
+      sugar: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}sugar'],
+      )!,
+      saturatedFat: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}saturated_fat'],
+      )!,
+      sodium: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}sodium'],
+      )!,
       category: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}category'],
@@ -3084,6 +3177,10 @@ class Food extends DataClass implements Insertable<Food> {
   final double protein;
   final double carbs;
   final double fat;
+  final double fiber;
+  final double sugar;
+  final double saturatedFat;
+  final double sodium;
   final String? category;
   final bool isCustom;
   const Food({
@@ -3093,6 +3190,10 @@ class Food extends DataClass implements Insertable<Food> {
     required this.protein,
     required this.carbs,
     required this.fat,
+    required this.fiber,
+    required this.sugar,
+    required this.saturatedFat,
+    required this.sodium,
     this.category,
     required this.isCustom,
   });
@@ -3105,6 +3206,10 @@ class Food extends DataClass implements Insertable<Food> {
     map['protein'] = Variable<double>(protein);
     map['carbs'] = Variable<double>(carbs);
     map['fat'] = Variable<double>(fat);
+    map['fiber'] = Variable<double>(fiber);
+    map['sugar'] = Variable<double>(sugar);
+    map['saturated_fat'] = Variable<double>(saturatedFat);
+    map['sodium'] = Variable<double>(sodium);
     if (!nullToAbsent || category != null) {
       map['category'] = Variable<String>(category);
     }
@@ -3120,6 +3225,10 @@ class Food extends DataClass implements Insertable<Food> {
       protein: Value(protein),
       carbs: Value(carbs),
       fat: Value(fat),
+      fiber: Value(fiber),
+      sugar: Value(sugar),
+      saturatedFat: Value(saturatedFat),
+      sodium: Value(sodium),
       category: category == null && nullToAbsent
           ? const Value.absent()
           : Value(category),
@@ -3139,6 +3248,10 @@ class Food extends DataClass implements Insertable<Food> {
       protein: serializer.fromJson<double>(json['protein']),
       carbs: serializer.fromJson<double>(json['carbs']),
       fat: serializer.fromJson<double>(json['fat']),
+      fiber: serializer.fromJson<double>(json['fiber']),
+      sugar: serializer.fromJson<double>(json['sugar']),
+      saturatedFat: serializer.fromJson<double>(json['saturatedFat']),
+      sodium: serializer.fromJson<double>(json['sodium']),
       category: serializer.fromJson<String?>(json['category']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
     );
@@ -3153,6 +3266,10 @@ class Food extends DataClass implements Insertable<Food> {
       'protein': serializer.toJson<double>(protein),
       'carbs': serializer.toJson<double>(carbs),
       'fat': serializer.toJson<double>(fat),
+      'fiber': serializer.toJson<double>(fiber),
+      'sugar': serializer.toJson<double>(sugar),
+      'saturatedFat': serializer.toJson<double>(saturatedFat),
+      'sodium': serializer.toJson<double>(sodium),
       'category': serializer.toJson<String?>(category),
       'isCustom': serializer.toJson<bool>(isCustom),
     };
@@ -3165,6 +3282,10 @@ class Food extends DataClass implements Insertable<Food> {
     double? protein,
     double? carbs,
     double? fat,
+    double? fiber,
+    double? sugar,
+    double? saturatedFat,
+    double? sodium,
     Value<String?> category = const Value.absent(),
     bool? isCustom,
   }) => Food(
@@ -3174,6 +3295,10 @@ class Food extends DataClass implements Insertable<Food> {
     protein: protein ?? this.protein,
     carbs: carbs ?? this.carbs,
     fat: fat ?? this.fat,
+    fiber: fiber ?? this.fiber,
+    sugar: sugar ?? this.sugar,
+    saturatedFat: saturatedFat ?? this.saturatedFat,
+    sodium: sodium ?? this.sodium,
     category: category.present ? category.value : this.category,
     isCustom: isCustom ?? this.isCustom,
   );
@@ -3185,6 +3310,12 @@ class Food extends DataClass implements Insertable<Food> {
       protein: data.protein.present ? data.protein.value : this.protein,
       carbs: data.carbs.present ? data.carbs.value : this.carbs,
       fat: data.fat.present ? data.fat.value : this.fat,
+      fiber: data.fiber.present ? data.fiber.value : this.fiber,
+      sugar: data.sugar.present ? data.sugar.value : this.sugar,
+      saturatedFat: data.saturatedFat.present
+          ? data.saturatedFat.value
+          : this.saturatedFat,
+      sodium: data.sodium.present ? data.sodium.value : this.sodium,
       category: data.category.present ? data.category.value : this.category,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
     );
@@ -3199,6 +3330,10 @@ class Food extends DataClass implements Insertable<Food> {
           ..write('protein: $protein, ')
           ..write('carbs: $carbs, ')
           ..write('fat: $fat, ')
+          ..write('fiber: $fiber, ')
+          ..write('sugar: $sugar, ')
+          ..write('saturatedFat: $saturatedFat, ')
+          ..write('sodium: $sodium, ')
           ..write('category: $category, ')
           ..write('isCustom: $isCustom')
           ..write(')'))
@@ -3206,8 +3341,20 @@ class Food extends DataClass implements Insertable<Food> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, calories, protein, carbs, fat, category, isCustom);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    calories,
+    protein,
+    carbs,
+    fat,
+    fiber,
+    sugar,
+    saturatedFat,
+    sodium,
+    category,
+    isCustom,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3218,6 +3365,10 @@ class Food extends DataClass implements Insertable<Food> {
           other.protein == this.protein &&
           other.carbs == this.carbs &&
           other.fat == this.fat &&
+          other.fiber == this.fiber &&
+          other.sugar == this.sugar &&
+          other.saturatedFat == this.saturatedFat &&
+          other.sodium == this.sodium &&
           other.category == this.category &&
           other.isCustom == this.isCustom);
 }
@@ -3229,6 +3380,10 @@ class FoodsCompanion extends UpdateCompanion<Food> {
   final Value<double> protein;
   final Value<double> carbs;
   final Value<double> fat;
+  final Value<double> fiber;
+  final Value<double> sugar;
+  final Value<double> saturatedFat;
+  final Value<double> sodium;
   final Value<String?> category;
   final Value<bool> isCustom;
   final Value<int> rowid;
@@ -3239,6 +3394,10 @@ class FoodsCompanion extends UpdateCompanion<Food> {
     this.protein = const Value.absent(),
     this.carbs = const Value.absent(),
     this.fat = const Value.absent(),
+    this.fiber = const Value.absent(),
+    this.sugar = const Value.absent(),
+    this.saturatedFat = const Value.absent(),
+    this.sodium = const Value.absent(),
     this.category = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -3250,6 +3409,10 @@ class FoodsCompanion extends UpdateCompanion<Food> {
     required double protein,
     required double carbs,
     required double fat,
+    required double fiber,
+    required double sugar,
+    required double saturatedFat,
+    required double sodium,
     this.category = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -3258,7 +3421,11 @@ class FoodsCompanion extends UpdateCompanion<Food> {
        calories = Value(calories),
        protein = Value(protein),
        carbs = Value(carbs),
-       fat = Value(fat);
+       fat = Value(fat),
+       fiber = Value(fiber),
+       sugar = Value(sugar),
+       saturatedFat = Value(saturatedFat),
+       sodium = Value(sodium);
   static Insertable<Food> custom({
     Expression<String>? id,
     Expression<String>? name,
@@ -3266,6 +3433,10 @@ class FoodsCompanion extends UpdateCompanion<Food> {
     Expression<double>? protein,
     Expression<double>? carbs,
     Expression<double>? fat,
+    Expression<double>? fiber,
+    Expression<double>? sugar,
+    Expression<double>? saturatedFat,
+    Expression<double>? sodium,
     Expression<String>? category,
     Expression<bool>? isCustom,
     Expression<int>? rowid,
@@ -3277,6 +3448,10 @@ class FoodsCompanion extends UpdateCompanion<Food> {
       if (protein != null) 'protein': protein,
       if (carbs != null) 'carbs': carbs,
       if (fat != null) 'fat': fat,
+      if (fiber != null) 'fiber': fiber,
+      if (sugar != null) 'sugar': sugar,
+      if (saturatedFat != null) 'saturated_fat': saturatedFat,
+      if (sodium != null) 'sodium': sodium,
       if (category != null) 'category': category,
       if (isCustom != null) 'is_custom': isCustom,
       if (rowid != null) 'rowid': rowid,
@@ -3290,6 +3465,10 @@ class FoodsCompanion extends UpdateCompanion<Food> {
     Value<double>? protein,
     Value<double>? carbs,
     Value<double>? fat,
+    Value<double>? fiber,
+    Value<double>? sugar,
+    Value<double>? saturatedFat,
+    Value<double>? sodium,
     Value<String?>? category,
     Value<bool>? isCustom,
     Value<int>? rowid,
@@ -3301,6 +3480,10 @@ class FoodsCompanion extends UpdateCompanion<Food> {
       protein: protein ?? this.protein,
       carbs: carbs ?? this.carbs,
       fat: fat ?? this.fat,
+      fiber: fiber ?? this.fiber,
+      sugar: sugar ?? this.sugar,
+      saturatedFat: saturatedFat ?? this.saturatedFat,
+      sodium: sodium ?? this.sodium,
       category: category ?? this.category,
       isCustom: isCustom ?? this.isCustom,
       rowid: rowid ?? this.rowid,
@@ -3328,6 +3511,18 @@ class FoodsCompanion extends UpdateCompanion<Food> {
     if (fat.present) {
       map['fat'] = Variable<double>(fat.value);
     }
+    if (fiber.present) {
+      map['fiber'] = Variable<double>(fiber.value);
+    }
+    if (sugar.present) {
+      map['sugar'] = Variable<double>(sugar.value);
+    }
+    if (saturatedFat.present) {
+      map['saturated_fat'] = Variable<double>(saturatedFat.value);
+    }
+    if (sodium.present) {
+      map['sodium'] = Variable<double>(sodium.value);
+    }
     if (category.present) {
       map['category'] = Variable<String>(category.value);
     }
@@ -3349,6 +3544,10 @@ class FoodsCompanion extends UpdateCompanion<Food> {
           ..write('protein: $protein, ')
           ..write('carbs: $carbs, ')
           ..write('fat: $fat, ')
+          ..write('fiber: $fiber, ')
+          ..write('sugar: $sugar, ')
+          ..write('saturatedFat: $saturatedFat, ')
+          ..write('sodium: $sodium, ')
           ..write('category: $category, ')
           ..write('isCustom: $isCustom, ')
           ..write('rowid: $rowid')
@@ -5436,6 +5635,10 @@ typedef $$FoodsTableCreateCompanionBuilder =
       required double protein,
       required double carbs,
       required double fat,
+      required double fiber,
+      required double sugar,
+      required double saturatedFat,
+      required double sodium,
       Value<String?> category,
       Value<bool> isCustom,
       Value<int> rowid,
@@ -5448,6 +5651,10 @@ typedef $$FoodsTableUpdateCompanionBuilder =
       Value<double> protein,
       Value<double> carbs,
       Value<double> fat,
+      Value<double> fiber,
+      Value<double> sugar,
+      Value<double> saturatedFat,
+      Value<double> sodium,
       Value<String?> category,
       Value<bool> isCustom,
       Value<int> rowid,
@@ -5488,6 +5695,26 @@ class $$FoodsTableFilterComposer extends Composer<_$AppDatabase, $FoodsTable> {
 
   ColumnFilters<double> get fat => $composableBuilder(
     column: $table.fat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fiber => $composableBuilder(
+    column: $table.fiber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get sugar => $composableBuilder(
+    column: $table.sugar,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get saturatedFat => $composableBuilder(
+    column: $table.saturatedFat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get sodium => $composableBuilder(
+    column: $table.sodium,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5541,6 +5768,26 @@ class $$FoodsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get fiber => $composableBuilder(
+    column: $table.fiber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get sugar => $composableBuilder(
+    column: $table.sugar,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get saturatedFat => $composableBuilder(
+    column: $table.saturatedFat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get sodium => $composableBuilder(
+    column: $table.sodium,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get category => $composableBuilder(
     column: $table.category,
     builder: (column) => ColumnOrderings(column),
@@ -5578,6 +5825,20 @@ class $$FoodsTableAnnotationComposer
 
   GeneratedColumn<double> get fat =>
       $composableBuilder(column: $table.fat, builder: (column) => column);
+
+  GeneratedColumn<double> get fiber =>
+      $composableBuilder(column: $table.fiber, builder: (column) => column);
+
+  GeneratedColumn<double> get sugar =>
+      $composableBuilder(column: $table.sugar, builder: (column) => column);
+
+  GeneratedColumn<double> get saturatedFat => $composableBuilder(
+    column: $table.saturatedFat,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get sodium =>
+      $composableBuilder(column: $table.sodium, builder: (column) => column);
 
   GeneratedColumn<String> get category =>
       $composableBuilder(column: $table.category, builder: (column) => column);
@@ -5620,6 +5881,10 @@ class $$FoodsTableTableManager
                 Value<double> protein = const Value.absent(),
                 Value<double> carbs = const Value.absent(),
                 Value<double> fat = const Value.absent(),
+                Value<double> fiber = const Value.absent(),
+                Value<double> sugar = const Value.absent(),
+                Value<double> saturatedFat = const Value.absent(),
+                Value<double> sodium = const Value.absent(),
                 Value<String?> category = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -5630,6 +5895,10 @@ class $$FoodsTableTableManager
                 protein: protein,
                 carbs: carbs,
                 fat: fat,
+                fiber: fiber,
+                sugar: sugar,
+                saturatedFat: saturatedFat,
+                sodium: sodium,
                 category: category,
                 isCustom: isCustom,
                 rowid: rowid,
@@ -5642,6 +5911,10 @@ class $$FoodsTableTableManager
                 required double protein,
                 required double carbs,
                 required double fat,
+                required double fiber,
+                required double sugar,
+                required double saturatedFat,
+                required double sodium,
                 Value<String?> category = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -5652,6 +5925,10 @@ class $$FoodsTableTableManager
                 protein: protein,
                 carbs: carbs,
                 fat: fat,
+                fiber: fiber,
+                sugar: sugar,
+                saturatedFat: saturatedFat,
+                sodium: sodium,
                 category: category,
                 isCustom: isCustom,
                 rowid: rowid,

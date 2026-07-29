@@ -16,7 +16,7 @@ import 'package:drift/drift.dart' hide Column;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  //CheckFirstTime.setFirstTime(true); // Reset first-time flag for testing 
+  CheckFirstTime.setFirstTime(false); // Reset first-time flag for testing 
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

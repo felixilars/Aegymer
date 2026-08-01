@@ -21,6 +21,11 @@ class VarietyScorer {
       explanation: occurrences == 0
           ? "Provides meal variety."
           : "Recently eaten $occurrences time(s).",
+      reasons: [
+        occurrences == 0
+            ? "Not eaten recently."
+            : "Recently eaten $occurrences time(s).",
+      ],
     );
   }
 }

@@ -1,5 +1,6 @@
 
 import 'package:flutter_application_1/core/databases/app_database.dart';
+import 'package:flutter_application_1/models/mealRec_helper/amount_recommendation.dart';
 import 'package:flutter_application_1/models/nutrition_macros.dart';
 import 'package:flutter_application_1/models/score_result.dart';
 import 'package:flutter_application_1/core/services/Meal/scorer/heuristics/food_calories_scorer.dart';
@@ -23,18 +24,18 @@ class Scorer {
 
   ScoreResult calculate({
     required Food food,
-    required NutritionMacros macros,
-    required double remainingCalories,
+    required AmountRecommendation amountRecommendation,
+    required NutritionMacros remainingMacros,
     required List<Food> recentFoods,
   }) {
     final macroResult = macroScorer.score(
-      food: food,
-      remainingMacros: macros,
+      providedMacros: amountRecommendation.macros,
+      remainingMacros: remainingMacros,
     );
 
     final calorieResult = calorieScorer.score(
-      food: food,
-      remainingCalories: remainingCalories,
+      providedCalories: amountRecommendation.macros.calories,
+      remainingCalories: remainingMacros.calories,
     );
 
     final varietyResult = varietyScorer.score(
@@ -53,9 +54,21 @@ class Scorer {
       varietyResult.explanation,
     ].join('\n');
 
+    final reasons = [
+      ...macroResult.reasons,
+      ...calorieResult.reasons,
+      ...varietyResult.reasons,
+    ];
+
     return ScoreResult(
       score: totalScore,
       explanation: explanation,
+      reasons: reasons,
+      breakdown: {
+        'Macro Fit': macroResult.score,
+        'Calorie Fit': calorieResult.score,
+        'Variety': varietyResult.score,
+      },
     );
   }
 }

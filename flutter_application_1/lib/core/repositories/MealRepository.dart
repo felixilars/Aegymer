@@ -41,6 +41,7 @@ class MealRepository {
   Future<void> addFoodToMeal({
     required Food food,
     required String mealType,
+    required double amount,
   }) async {
     final now = DateTime.now();
     final day = DateTime(now.year, now.month, now.day);
@@ -70,7 +71,7 @@ class MealRepository {
           id: '${activeMealId}-${DateTime.now().microsecondsSinceEpoch}',
           mealId: activeMealId,
           foodId: food.id,
-          amount: 100,
+          amount: amount,
         ),
       );
     });

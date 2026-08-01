@@ -4,6 +4,8 @@ import 'package:flutter_application_1/core/enums/meal_context.dart';
 import 'package:flutter_application_1/core/repositories/FoodRepository.dart';
 import 'package:flutter_application_1/core/repositories/MealRepository.dart';
 import 'package:flutter_application_1/core/repositories/UserRepository.dart';
+import 'package:flutter_application_1/core/services/Meal/amount/proportional_amount_calculator.dart';
+import 'package:flutter_application_1/models/mealRec_helper/meal_recommendation.dart';
 import 'package:flutter_application_1/core/services/Meal/meal_recommendation_service.dart';
 import 'package:flutter_application_1/core/services/Meal/scorer/heuristics/food_calories_scorer.dart';
 import 'package:flutter_application_1/core/services/Meal/scorer/heuristics/food_macro_scorer.dart';
@@ -46,6 +48,12 @@ class _MealPrepPageState extends State<MealPrepPage> {
     carbs: 0,
     fat: 0,
   );
+  NutritionMacros _remainingMacros = NutritionMacros(
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+  );
   List<MealRecommendation> _recommendations = [];
   List<MealItemWithFood> _loggedFoods = [];
   List<Food> _searchResults = [];
@@ -61,6 +69,7 @@ class _MealPrepPageState extends State<MealPrepPage> {
             database: widget.db,
             openFoodFactsService: OpenFoodFactsService(),
           ),
+          const ProportionalAmountCalculator(),
           Scorer(
             macroScorer: MacroScorer(),
             calorieScorer: CalorieScorer(),
@@ -87,9 +96,11 @@ class _MealPrepPageState extends State<MealPrepPage> {
 
     try {
       final mealContext = await _service.determineMealContext();
-      final targetMacros = await _service.calculateMealTarget(mealContext);
+      final remainingState = await _service.calculateRemainingMealMacros(
+        mealContext: mealContext,
+      );
       final recommendations = refreshRecommendations
-          ? await _service.recommendFoods(limit: 5)
+          ? await _service.recommendFoods(limit: 5, mealContext: mealContext)
           : _recommendations;
       final loggedFoods = await _service.getLoggedFoodsForCurrentMeal(
         mealContext: mealContext,
@@ -99,10 +110,11 @@ class _MealPrepPageState extends State<MealPrepPage> {
 
       setState(() {
         _mealContext = mealContext;
-        _targetMacros = targetMacros;
+        _targetMacros = remainingState.target;
+        _consumedMacros = remainingState.consumed;
+        _remainingMacros = remainingState.remaining;
         _recommendations = recommendations;
         _loggedFoods = loggedFoods;
-        _consumedMacros = _sumMacros(loggedFoods);
         _isLoading = false;
         _isRefreshing = false;
       });
@@ -120,13 +132,19 @@ class _MealPrepPageState extends State<MealPrepPage> {
     await _loadPage(refreshRecommendations: true);
   }
 
-  Future<void> _handleAddFood(Food food) async {
-    await _service.addFoodToMeal(food, mealContext: _mealContext);
+  Future<void> _handleAddFood(Food food, {double amount = 100}) async {
+    await _service.addFoodToMeal(
+      food,
+      mealContext: _mealContext,
+      amount: amount,
+    );
     await _refreshPage();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${food.name} added to ${_mealContext.displayName.toLowerCase()}.'),
+          content: Text(
+            '${food.name} (${amount.toStringAsFixed(0)}g) added to ${_mealContext.displayName.toLowerCase()}.',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -165,27 +183,6 @@ class _MealPrepPageState extends State<MealPrepPage> {
         _isSearching = false;
       });
     }
-  }
-
-  NutritionMacros _sumMacros(List<MealItemWithFood> items) {
-    double calories = 0;
-    double protein = 0;
-    double carbs = 0;
-    double fat = 0;
-
-    for (final item in items) {
-      calories += item.food.calories;
-      protein += item.food.protein;
-      carbs += item.food.carbs;
-      fat += item.food.fat;
-    }
-
-    return NutritionMacros(
-      calories: calories,
-      protein: protein,
-      carbs: carbs,
-      fat: fat,
-    );
   }
 
   @override
@@ -264,6 +261,7 @@ class _MealPrepPageState extends State<MealPrepPage> {
           mealContext: _mealContext,
           targetMacros: _targetMacros,
           consumedMacros: _consumedMacros,
+          remainingMacros: _remainingMacros,
         ),
         const SizedBox(height: 20),
         Text(
@@ -290,7 +288,10 @@ class _MealPrepPageState extends State<MealPrepPage> {
                     }
                   });
                 },
-                onAdd: () => _handleAddFood(recommendation.food),
+                onAdd: () => _handleAddFood(
+                  recommendation.food,
+                  amount: recommendation.amount.grams,
+                ),
               ),
             );
           }),
@@ -487,21 +488,23 @@ class _MealSummaryCard extends StatelessWidget {
   final MealContext mealContext;
   final NutritionMacros targetMacros;
   final NutritionMacros consumedMacros;
+  final NutritionMacros remainingMacros;
 
   const _MealSummaryCard({
     required this.mealContext,
     required this.targetMacros,
     required this.consumedMacros,
+    required this.remainingMacros,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final items = <_MacroItem>[
-      _MacroItem('Calories', consumedMacros.calories, targetMacros.calories, theme.colorScheme.primary),
-      _MacroItem('Protein', consumedMacros.protein, targetMacros.protein, theme.colorScheme.tertiary),
-      _MacroItem('Carbs', consumedMacros.carbs, targetMacros.carbs, theme.colorScheme.secondary),
-      _MacroItem('Fat', consumedMacros.fat, targetMacros.fat, theme.colorScheme.error),
+      _MacroItem('Calories', remainingMacros.calories, consumedMacros.calories, targetMacros.calories, theme.colorScheme.primary),
+      _MacroItem('Protein', remainingMacros.protein, consumedMacros.protein, targetMacros.protein, theme.colorScheme.tertiary),
+      _MacroItem('Carbs', remainingMacros.carbs, consumedMacros.carbs, targetMacros.carbs, theme.colorScheme.secondary),
+      _MacroItem('Fat', remainingMacros.fat, consumedMacros.fat, targetMacros.fat, theme.colorScheme.error),
     ];
 
     return Card(
@@ -519,7 +522,7 @@ class _MealSummaryCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Target for this meal',
+              'Remaining for this meal',
               style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
@@ -536,11 +539,12 @@ class _MealSummaryCard extends StatelessWidget {
 
 class _MacroItem {
   final String label;
+  final double remaining;
   final double consumed;
   final double target;
   final Color color;
 
-  const _MacroItem(this.label, this.consumed, this.target, this.color);
+  const _MacroItem(this.label, this.remaining, this.consumed, this.target, this.color);
 }
 
 class _MacroProgressRow extends StatelessWidget {
@@ -552,9 +556,9 @@ class _MacroProgressRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final progress = item.target <= 0 ? 0.0 : (item.consumed / item.target).clamp(0.0, 1.0);
-    final consumedText = item.label == 'Calories'
-        ? '${item.consumed.round()} / ${item.target.round()}'
-        : '${item.consumed.toStringAsFixed(0)} / ${item.target.toStringAsFixed(0)}g';
+    final remainingText = item.label == 'Calories'
+      ? '${item.remaining.round()} left'
+      : '${item.remaining.toStringAsFixed(0)}g left';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -563,7 +567,7 @@ class _MacroProgressRow extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(item.label, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-            Text(consumedText, style: theme.textTheme.bodySmall),
+            Text(remainingText, style: theme.textTheme.bodySmall),
           ],
         ),
         const SizedBox(height: 6),
@@ -599,6 +603,7 @@ class _RecommendationCard extends StatelessWidget {
     final theme = Theme.of(context);
     final score = recommendation.score.score.clamp(0.0, 100.0);
     final food = recommendation.food;
+    final amount = recommendation.amount;
 
     return Card(
       elevation: 0,
@@ -629,10 +634,11 @@ class _RecommendationCard extends StatelessWidget {
               spacing: 12,
               runSpacing: 6,
               children: [
-                _NutritionPill('${food.calories.toStringAsFixed(0)} kcal', theme),
-                _NutritionPill('${food.protein.toStringAsFixed(0)}g protein', theme),
-                _NutritionPill('${food.fat.toStringAsFixed(0)}g fat', theme),
-                _NutritionPill('${food.carbs.toStringAsFixed(0)}g carbs', theme),
+                _NutritionPill('Recommended ${amount.grams.toStringAsFixed(0)}g', theme),
+                _NutritionPill('${amount.macros.calories.toStringAsFixed(0)} kcal', theme),
+                _NutritionPill('${amount.macros.protein.toStringAsFixed(0)}g protein', theme),
+                _NutritionPill('${amount.macros.fat.toStringAsFixed(0)}g fat', theme),
+                _NutritionPill('${amount.macros.carbs.toStringAsFixed(0)}g carbs', theme),
               ],
             ),
             const SizedBox(height: 12),
@@ -660,6 +666,21 @@ class _RecommendationCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Text('Score breakdown', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    ...recommendation.score.breakdown.entries.map(
+                      (entry) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(entry.key, style: theme.textTheme.bodySmall),
+                            Text(entry.value.toStringAsFixed(0), style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Text('Overall score', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 6),
                     ClipRRect(
@@ -672,9 +693,19 @@ class _RecommendationCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      recommendation.score.explanation,
-                      style: theme.textTheme.bodyMedium,
+                    Text('Reasons', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    ...recommendation.score.reasons.map(
+                      (reason) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('✔ '),
+                            Expanded(child: Text(reason, style: theme.textTheme.bodyMedium)),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -778,6 +809,12 @@ class _LoggedFoodCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final food = item.food;
+    final grams = item.mealItem.amount;
+    final ratio = grams / 100.0;
+    final calories = food.calories * ratio;
+    final protein = food.protein * ratio;
+    final carbs = food.carbs * ratio;
+    final fat = food.fat * ratio;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -794,9 +831,9 @@ class _LoggedFoodCard extends StatelessWidget {
               children: [
                 Text(food.name, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 6),
-                Text('${food.calories.toStringAsFixed(0)} kcal', style: theme.textTheme.bodyMedium),
+                Text('${grams.toStringAsFixed(0)}g • ${calories.toStringAsFixed(0)} kcal', style: theme.textTheme.bodyMedium),
                 const SizedBox(height: 6),
-                Text('${food.protein.toStringAsFixed(0)} P • ${food.carbs.toStringAsFixed(0)} C • ${food.fat.toStringAsFixed(0)} F', style: theme.textTheme.bodySmall),
+                Text('${protein.toStringAsFixed(0)} P • ${carbs.toStringAsFixed(0)} C • ${fat.toStringAsFixed(0)} F', style: theme.textTheme.bodySmall),
               ],
             ),
           ),

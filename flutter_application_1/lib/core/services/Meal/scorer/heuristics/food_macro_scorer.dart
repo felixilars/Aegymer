@@ -1,5 +1,4 @@
 
-import 'package:flutter_application_1/core/databases/app_database.dart';
 import 'package:flutter_application_1/models/nutrition_macros.dart';
 import 'package:flutter_application_1/models/score_result.dart';
 
@@ -18,21 +17,21 @@ class MacroScorer {
   static const double _overshootMultiplier = 1.25;
 
   ScoreResult score({
-    required Food food,
+    required NutritionMacros providedMacros,
     required NutritionMacros remainingMacros,
   }) {
     final proteinScore = _macroScore(
-      foodValue: food.protein,
+      foodValue: providedMacros.protein,
       targetValue: remainingMacros.protein,
     );
 
     final carbScore = _macroScore(
-      foodValue: food.carbs,
+      foodValue: providedMacros.carbs,
       targetValue: remainingMacros.carbs,
     );
 
     final fatScore = _macroScore(
-      foodValue: food.fat,
+      foodValue: providedMacros.fat,
       targetValue: remainingMacros.fat,
     );
 
@@ -44,6 +43,11 @@ class MacroScorer {
     return ScoreResult(
       score: total,
       explanation: _buildExplanation(
+        proteinScore: proteinScore,
+        carbScore: carbScore,
+        fatScore: fatScore,
+      ),
+      reasons: _buildReasons(
         proteinScore: proteinScore,
         carbScore: carbScore,
         fatScore: fatScore,
@@ -78,6 +82,18 @@ class MacroScorer {
     required double carbScore,
     required double fatScore,
   }) {
+    return _buildReasons(
+      proteinScore: proteinScore,
+      carbScore: carbScore,
+      fatScore: fatScore,
+    ).join(' ');
+  }
+
+  List<String> _buildReasons({
+    required double proteinScore,
+    required double carbScore,
+    required double fatScore,
+  }) {
     final messages = <String>[];
 
     if (proteinScore >= 90) {
@@ -102,6 +118,6 @@ class MacroScorer {
       messages.add("Reasonable overall macro balance.");
     }
 
-    return messages.join(" ");
+    return messages;
   }
 }

@@ -228,14 +228,24 @@ class StreakService {
   ) async {
     final sessionsCount = thisWeekSessions.length;
 
-    // Calculate total calories from user_meals
-    final thisWeekMeals = await (db.select(
-      db.userMeals,
-    )..where((t) => t.date.isBiggerOrEqualValue(startOfWeek))).get();
+    // Calculate total calories from user_meals, meal_items, and foods
+    final query = db.select(db.mealItems).join([
+      drift.innerJoin(
+        db.userMeals,
+        db.userMeals.id.equalsExp(db.mealItems.mealId),
+      ),
+      drift.innerJoin(
+        db.foods,
+        db.foods.id.equalsExp(db.mealItems.foodId),
+      ),
+    ])..where(db.userMeals.date.isBiggerOrEqualValue(startOfWeek));
 
+    final rows = await query.get();
     double totalCalories = 0.0;
-    for (var meal in thisWeekMeals) {
-      totalCalories += meal.totalCalories;
+    for (var row in rows) {
+      final item = row.readTable(db.mealItems);
+      final food = row.readTable(db.foods);
+      totalCalories += (food.calories * item.amount) / 100.0;
     }
 
     // Calculate total duration from workout_sets

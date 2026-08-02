@@ -3,8 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
 import 'package:flutter_application_1/presentation/screen/welcome_screen.dart';
 import 'package:flutter_application_1/presentation/screen/workout_log_screen.dart';
-import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
-
+import 'package:flutter_application_1/core/services/sync_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_application_1/core/services/backup_service.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
@@ -28,7 +27,7 @@ void main() async {
   await syncService.syncExercisesFromCloud();
   await syncService.syncFoodsFromCloud();
 
-  runApp(MyApp(db: db));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -70,7 +69,7 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: Homepage(db: db),
+      home: const MainPage(),
     );
   }
 }

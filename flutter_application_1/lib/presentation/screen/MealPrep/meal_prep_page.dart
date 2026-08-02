@@ -55,7 +55,8 @@ class _MealPrepPageState extends State<MealPrepPage> {
   @override
   void initState() {
     super.initState();
-    _service = widget.service ??
+    _service =
+        widget.service ??
         MealRecommendationService(
           MealRepository(widget.db),
           UserRepository(widget.db),
@@ -128,17 +129,32 @@ class _MealPrepPageState extends State<MealPrepPage> {
     }
   }
 
-  Future<void> _addRecommendationToMeal(MealRecommendation recommendation) async {
+  Future<void> _addRecommendationToMeal(
+    MealRecommendation recommendation,
+  ) async {
+    final amount = await _pickAmountInGrams(
+      food: recommendation.food,
+      initialAmount: recommendation.amount.grams,
+    );
+    if (!mounted || amount == null) return;
+
     await _service.addFoodToMeal(
       recommendation.food,
       mealContext: _mealContext,
-      amount: recommendation.amount.grams,
+      amount: amount,
     );
     await _loadAllData(showBusy: true);
   }
 
   Future<void> _addSearchResultToMeal(Food food) async {
-    await _service.addFoodToMeal(food, mealContext: _mealContext);
+    final amount = await _pickAmountInGrams(food: food, initialAmount: 100);
+    if (!mounted || amount == null) return;
+
+    await _service.addFoodToMeal(
+      food,
+      mealContext: _mealContext,
+      amount: amount,
+    );
     await _loadAllData(showBusy: true);
   }
 
@@ -184,21 +200,168 @@ class _MealPrepPageState extends State<MealPrepPage> {
     });
   }
 
+  Future<double?> _pickAmountInGrams({
+    required Food food,
+    required double initialAmount,
+  }) async {
+    final normalizedInitial = initialAmount <= 0 ? 100.0 : initialAmount;
+    var amountInput = _formatGramInput(normalizedInitial);
+    var currentAmount = normalizedInitial;
+    String? amountError;
+
+    NutritionMacros macrosFor(double grams) {
+      final ratio = grams / 100;
+      return NutritionMacros(
+        calories: food.calories * ratio,
+        protein: food.protein * ratio,
+        carbs: food.carbs * ratio,
+        fat: food.fat * ratio,
+      );
+    }
+
+    final selectedAmount = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final preview = macrosFor(currentAmount);
+
+            return AlertDialog(
+              title: const Text('Set Amount'),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        food.name,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        key: ValueKey<String>(food.id),
+                        initialValue: amountInput,
+                        autofocus: true,
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                        onFieldSubmitted: (_) {
+                          final parsed = _tryParseAmount(amountInput);
+                          if (parsed == null || parsed <= 0) {
+                            setDialogState(() {
+                              amountError =
+                                  'Please enter a value greater than 0';
+                            });
+                            return;
+                          }
+
+                          Navigator.of(dialogContext).pop(parsed);
+                        },
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Amount (g)',
+                          hintText: 'Enter grams',
+                          prefixIcon: const Icon(Icons.scale_outlined),
+                          errorText: amountError,
+                        ),
+                        onChanged: (rawValue) {
+                          amountInput = rawValue;
+                          final parsed = _tryParseAmount(rawValue);
+                          setDialogState(() {
+                            if (parsed == null || parsed <= 0) {
+                              amountError =
+                                  'Please enter a value greater than 0';
+                              return;
+                            }
+
+                            currentAmount = parsed;
+                            amountError = null;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Preview for ${_formatGramInput(currentAmount)} g',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _MacroProvidedGrid(
+                        calories: preview.calories,
+                        protein: preview.protein,
+                        carbs: preview.carbs,
+                        fat: preview.fat,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: amountError != null
+                      ? null
+                      : () {
+                          final parsed = _tryParseAmount(amountInput);
+                          if (parsed == null || parsed <= 0) {
+                            setDialogState(() {
+                              amountError =
+                                  'Please enter a value greater than 0';
+                            });
+                            return;
+                          }
+
+                          Navigator.of(dialogContext).pop(parsed);
+                        },
+                  child: const Text('Add to Meal'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    return selectedAmount;
+  }
+
+  double? _tryParseAmount(String value) {
+    final normalized = value.trim().replaceAll(',', '.');
+    if (normalized.isEmpty) return null;
+    return double.tryParse(normalized);
+  }
+
+  String _formatGramInput(double amount) {
+    final rounded = amount.roundToDouble();
+    if ((amount - rounded).abs() < 0.001) {
+      return rounded.toStringAsFixed(0);
+    }
+    return amount.toStringAsFixed(1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_mealContext.displayName),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(_mealContext.displayName), centerTitle: true),
       body: Stack(
         children: [
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final maxWidth = constraints.maxWidth > 860 ? 860.0 : constraints.maxWidth;
+                final maxWidth = constraints.maxWidth > 860
+                    ? 860.0
+                    : constraints.maxWidth;
                 return Align(
                   alignment: Alignment.topCenter,
                   child: ConstrainedBox(
@@ -260,7 +423,8 @@ class _MealPrepPageState extends State<MealPrepPage> {
           const SizedBox(height: 12),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 280),
-            transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
             child: _recommendations.isEmpty
                 ? const _EmptyCard(
                     key: ValueKey('empty-recommendations'),
@@ -270,7 +434,9 @@ class _MealPrepPageState extends State<MealPrepPage> {
                 : Column(
                     key: ValueKey<int>(_recommendationVersion),
                     children: _recommendations.map((recommendation) {
-                      final isExpanded = _expandedCards.contains(recommendation.food.id);
+                      final isExpanded = _expandedCards.contains(
+                        recommendation.food.id,
+                      );
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: _RecommendationCard(
@@ -299,12 +465,14 @@ class _MealPrepPageState extends State<MealPrepPage> {
           const SizedBox(height: 12),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 280),
-            transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
             child: _loggedFoods.isEmpty
                 ? const _EmptyCard(
                     key: ValueKey('empty-meal'),
                     title: 'Nothing has been logged for this meal.',
-                    message: 'Start by selecting one of the recommendations below.',
+                    message:
+                        'Start by selecting one of the recommendations below.',
                   )
                 : Column(
                     key: ValueKey<int>(_mealVersion),
@@ -342,7 +510,9 @@ class _MealPrepPageState extends State<MealPrepPage> {
                     )
                   : null,
               filled: true,
-              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.35,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -393,8 +563,13 @@ class _MealSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final consumed = (targetCalories - remainingCalories).clamp(0, double.infinity);
-    final progress = targetCalories <= 0 ? 0.0 : (consumed / targetCalories).clamp(0.0, 1.0);
+    final consumed = (targetCalories - remainingCalories).clamp(
+      0,
+      double.infinity,
+    );
+    final progress = targetCalories <= 0
+        ? 0.0
+        : (consumed / targetCalories).clamp(0.0, 1.0);
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -406,7 +581,9 @@ class _MealSummaryCard extends StatelessWidget {
           children: [
             Text(
               mealContext.displayName,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 14),
             Wrap(
@@ -414,7 +591,10 @@ class _MealSummaryCard extends StatelessWidget {
               runSpacing: 10,
               children: [
                 _LabeledKcal(label: 'Target Calories', value: targetCalories),
-                _LabeledKcal(label: 'Remaining Calories', value: remainingCalories),
+                _LabeledKcal(
+                  label: 'Remaining Calories',
+                  value: remainingCalories,
+                ),
                 _LabeledPercent(label: 'Progress', value: progress),
               ],
             ),
@@ -489,7 +669,9 @@ class _RemainingMacrosCard extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: cards.map((data) {
-            final width = isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
+            final width = isWide
+                ? (constraints.maxWidth - 12) / 2
+                : constraints.maxWidth;
             return SizedBox(
               width: width,
               child: _MacroRemainingItem(data: data, theme: theme),
@@ -527,7 +709,9 @@ class _MacroRemainingItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final satisfied = data.remaining <= 0;
     final consumed = (data.target - data.remaining).clamp(0, double.infinity);
-    final progress = data.target <= 0 ? 0.0 : (consumed / data.target).clamp(0.0, 1.0);
+    final progress = data.target <= 0
+        ? 0.0
+        : (consumed / data.target).clamp(0.0, 1.0);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -553,7 +737,9 @@ class _MacroRemainingItem extends StatelessWidget {
               Expanded(
                 child: Text(
                   data.label,
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               if (satisfied)
@@ -568,7 +754,9 @@ class _MacroRemainingItem extends StatelessWidget {
           _AnimatedNumberText(
             value: data.remaining,
             suffix: data.unit,
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -587,7 +775,9 @@ class _MacroRemainingItem extends StatelessWidget {
                 child: LinearProgressIndicator(
                   minHeight: 8,
                   value: value,
-                  color: satisfied ? theme.colorScheme.tertiary : theme.colorScheme.primary,
+                  color: satisfied
+                      ? theme.colorScheme.tertiary
+                      : theme.colorScheme.primary,
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 ),
               );
@@ -644,7 +834,9 @@ class _RecommendationCardState extends State<_RecommendationCard> {
         ),
         child: Card(
           margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           color: theme.colorScheme.surface,
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -657,11 +849,16 @@ class _RecommendationCardState extends State<_RecommendationCard> {
                     Expanded(
                       child: Text(
                         widget.recommendation.food.name,
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: scoreColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(999),
@@ -679,7 +876,9 @@ class _RecommendationCardState extends State<_RecommendationCard> {
                 const SizedBox(height: 12),
                 Text(
                   'Recommended ${amount.grams.toStringAsFixed(0)} g',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 _MacroProvidedGrid(
@@ -691,7 +890,9 @@ class _RecommendationCardState extends State<_RecommendationCard> {
                 const SizedBox(height: 12),
                 TextButton.icon(
                   onPressed: widget.onToggle,
-                  icon: Icon(widget.expanded ? Icons.expand_less : Icons.expand_more),
+                  icon: Icon(
+                    widget.expanded ? Icons.expand_less : Icons.expand_more,
+                  ),
                   label: const Text('Why this food?'),
                 ),
                 AnimatedSwitcher(
@@ -771,7 +972,12 @@ class _MacroProvidedGrid extends StatelessWidget {
                     children: [
                       Text(item.label, style: theme.textTheme.labelMedium),
                       const SizedBox(height: 4),
-                      Text(item.value, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      Text(
+                        item.value,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -797,7 +1003,12 @@ class _RecommendationDetails extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Score Breakdown', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            'Score Breakdown',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 8),
           ...recommendation.score.breakdown.entries.map(
             (entry) => Padding(
@@ -806,13 +1017,23 @@ class _RecommendationDetails extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(entry.key, style: theme.textTheme.bodySmall),
-                  Text(entry.value.toStringAsFixed(0), style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    entry.value.toStringAsFixed(0),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 8),
-          Text('Reasons', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            'Reasons',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 8),
           ...recommendation.score.reasons.map(
             (reason) => Padding(
@@ -820,9 +1041,15 @@ class _RecommendationDetails extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.check_circle_outline, size: 18, color: theme.colorScheme.primary),
+                  Icon(
+                    Icons.check_circle_outline,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(reason, style: theme.textTheme.bodyMedium)),
+                  Expanded(
+                    child: Text(reason, style: theme.textTheme.bodyMedium),
+                  ),
                 ],
               ),
             ),
@@ -859,9 +1086,17 @@ class _CurrentMealItemCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.food.name, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    item.food.name,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text('${item.mealItem.amount.toStringAsFixed(0)} g', style: theme.textTheme.bodyMedium),
+                  Text(
+                    '${item.mealItem.amount.toStringAsFixed(0)} g',
+                    style: theme.textTheme.bodyMedium,
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     '${calories.toStringAsFixed(0)} kcal • P ${protein.toStringAsFixed(0)} • C ${carbs.toStringAsFixed(0)} • F ${fat.toStringAsFixed(0)}',
@@ -901,7 +1136,12 @@ class _SearchFoodCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(food.name, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    food.name,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     '${food.calories.toStringAsFixed(0)} kcal • P ${food.protein.toStringAsFixed(0)} • C ${food.carbs.toStringAsFixed(0)} • F ${food.fat.toStringAsFixed(0)}',
@@ -910,10 +1150,7 @@ class _SearchFoodCard extends StatelessWidget {
                 ],
               ),
             ),
-            FilledButton(
-              onPressed: onAdd,
-              child: const Text('Add'),
-            ),
+            FilledButton(onPressed: onAdd, child: const Text('Add')),
           ],
         ),
       ),
@@ -933,9 +1170,19 @@ class _SectionHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+        Text(
+          title,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          subtitle,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
@@ -958,7 +1205,9 @@ class _LabeledKcal extends StatelessWidget {
         _AnimatedNumberText(
           value: value,
           suffix: 'kcal',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ],
     );
@@ -985,7 +1234,9 @@ class _LabeledPercent extends StatelessWidget {
           builder: (context, current, child) {
             return Text(
               '${(current * 100).toStringAsFixed(0)}%',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
             );
           },
         ),
@@ -1011,10 +1262,7 @@ class _AnimatedNumberText extends StatelessWidget {
       tween: Tween<double>(begin: 0, end: value),
       duration: const Duration(milliseconds: 420),
       builder: (context, current, child) {
-        return Text(
-          '${current.toStringAsFixed(0)} $suffix',
-          style: style,
-        );
+        return Text('${current.toStringAsFixed(0)} $suffix', style: style);
       },
     );
   }
@@ -1024,11 +1272,7 @@ class _EmptyCard extends StatelessWidget {
   final String title;
   final String message;
 
-  const _EmptyCard({
-    super.key,
-    required this.title,
-    required this.message,
-  });
+  const _EmptyCard({super.key, required this.title, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -1043,7 +1287,12 @@ class _EmptyCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           if (message.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(message, style: theme.textTheme.bodyMedium),
@@ -1077,7 +1326,11 @@ class _ErrorState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 40, color: theme.colorScheme.error),
+              Icon(
+                Icons.error_outline,
+                size: 40,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 12),
               Text(
                 message,
@@ -1142,7 +1395,9 @@ class _SkeletonCard extends StatelessWidget {
       width: double.infinity,
       height: height,
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.35,
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
     );

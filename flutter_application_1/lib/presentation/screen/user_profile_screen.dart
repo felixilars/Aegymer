@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
+import 'package:flutter_application_1/core/services/nutrition_service.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final AppDatabase db;
@@ -56,20 +57,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _weightController.text = profile.weight.toStringAsFixed(1);
         _heightController.text = profile.height.toStringAsFixed(1);
 
-        var activityLevel = profile.activityLevel;
-        if (activityLevel == 'Active') {
-          activityLevel = 'Moderately Active';
+        final activityLevelVal = profile.activityLevel;
+        if (activityLevelVal >= 1.9) {
+          _activityLevel = 'Extra Active';
+        } else if (activityLevelVal >= 1.725) {
+          _activityLevel = 'Very Active';
+        } else if (activityLevelVal >= 1.55) {
+          _activityLevel = 'Moderately Active';
+        } else if (activityLevelVal >= 1.375) {
+          _activityLevel = 'Lightly Active';
+        } else {
+          _activityLevel = 'Sedentary';
         }
-        if (!const [
-          'Sedentary',
-          'Lightly Active',
-          'Moderately Active',
-          'Very Active',
-          'Extra Active',
-        ].contains(activityLevel)) {
-          activityLevel = 'Moderately Active';
-        }
-        _activityLevel = activityLevel;
 
         var target = profile.target;
         if (!const ['Lose Fat', 'Maintenance', 'Gain Muscle'].contains(target)) {
@@ -112,6 +111,42 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     final profileId = _existingProfile?.id ?? 'local-profile';
 
+    final nutritionService = NutritionService();
+    final bmr = nutritionService.calculateBMR(
+      weight: weight,
+      height: height,
+      age: age,
+      gender: _gender,
+    );
+    final tdee = nutritionService.calculateTDEE(
+      bmr: bmr,
+      activityLevel: _activityLevel,
+    );
+    final macros = nutritionService.calculateMacroTargets(
+      tdee: tdee,
+      target: _target,
+      weight: weight,
+    );
+
+    double activityMultiplier = 1.55;
+    switch (_activityLevel.toLowerCase().trim()) {
+      case 'sedentary':
+        activityMultiplier = 1.2;
+        break;
+      case 'lightly active':
+        activityMultiplier = 1.375;
+        break;
+      case 'moderately active':
+        activityMultiplier = 1.55;
+        break;
+      case 'very active':
+        activityMultiplier = 1.725;
+        break;
+      case 'extra active':
+        activityMultiplier = 1.9;
+        break;
+    }
+
     try {
       await widget.db.into(widget.db.userProfiles).insertOnConflictUpdate(
             UserProfilesCompanion.insert(
@@ -120,8 +155,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               age: age,
               weight: weight,
               height: height,
-              activityLevel: _activityLevel,
+              activityLevel: activityMultiplier,
               target: _target,
+              dailyCalories: macros['calories'] ?? 2000.0,
+              dailyProtein: macros['protein'] ?? 150.0,
+              dailyCarbs: macros['carbs'] ?? 200.0,
+              dailyFat: macros['fat'] ?? 60.0,
               preferences: drift.Value(preferences.isEmpty ? null : preferences.join(', ')),
             ),
           );

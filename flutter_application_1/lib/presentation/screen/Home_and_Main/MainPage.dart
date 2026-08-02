@@ -7,15 +7,6 @@ import 'package:flutter_application_1/presentation/screen/UserProfile/profile_pa
 import 'package:flutter_application_1/presentation/screen/workout_launcher_screen.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
 
-
-
-
-
-
-
-
-
-
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
 
@@ -37,14 +28,17 @@ class _MainPageState extends State<MainPage> {
     _db = AppDatabase();
 
     _pages = [
-      Homepage(onRecordWorkout: () {
-        setState(() {
-          _selectedIndex = 2;
-        });
-      }),
-      MealPrepPage(db : _db),
+      Homepage(
+        db: _db,
+        onRecordWorkout: () {
+          setState(() {
+            _selectedIndex = 2;
+          });
+        },
+      ),
+      MealPrepPage(db: _db),
       WorkoutLauncherScreen(db: _db),
-      const ProfilePage(),
+      ProfilePage(db: _db),
     ];
 
     _appbars = [
@@ -61,24 +55,20 @@ class _MainPageState extends State<MainPage> {
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: _appbars[_selectedIndex] as PreferredSizeWidget,
-      body: _pages[_selectedIndex], 
+      body: _pages[_selectedIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           setState(() {
-            _selectedIndex = index; 
+            _selectedIndex = index;
           });
         },
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home),
-            label: "Home",
-          ),
+          NavigationDestination(icon: Icon(Icons.home), label: "Home"),
           NavigationDestination(
             icon: Icon(Icons.restaurant_menu),
             label: "Meals",
@@ -87,10 +77,7 @@ class _MainPageState extends State<MainPage> {
             icon: Icon(Icons.fitness_center),
             label: "Workout",
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person),
-            label: "Profile",
-          ),
+          NavigationDestination(icon: Icon(Icons.person), label: "Profile"),
         ],
       ),
     );

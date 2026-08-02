@@ -4,13 +4,8 @@ import 'package:drift/drift.dart' as drift;
 import 'package:flutter_application_1/core/databases/app_database.dart';
 import 'package:flutter_application_1/core/services/streak_service.dart';
 import 'package:flutter_application_1/presentation/recent_session_popup.dart';
-<<<<<<< HEAD:flutter_application_1/lib/presentation/homepage.dart
-import 'package:flutter_application_1/presentation/widgets/streak_detail_sheet.dart';
-import 'package:flutter_application_1/presentation/screen/user_profile_screen.dart';
 import 'package:flutter_application_1/presentation/screen/workout_launcher_screen.dart';
-
-=======
->>>>>>> origin/main:flutter_application_1/lib/presentation/screen/Home_and_Main/homepage.dart
+import 'package:flutter_application_1/presentation/widgets/streak_detail_sheet.dart';
 // Color Palette
 const backgroundColor = Color(0xffF5F7FA);
 const cardColor = Colors.white;
@@ -20,18 +15,14 @@ const textColor = Color(0xff1F2937);
 const subtitleColor = Color(0xff6B7280);
 
 class Homepage extends StatefulWidget {
-<<<<<<< HEAD:flutter_application_1/lib/presentation/homepage.dart
   final AppDatabase db;
-
-  const Homepage({super.key, required this.db});
-=======
   final VoidCallback onRecordWorkout;
 
   const Homepage({
     super.key,
+    required this.db,
     required this.onRecordWorkout,
   });
->>>>>>> origin/main:flutter_application_1/lib/presentation/screen/Home_and_Main/homepage.dart
 
   @override
   State<Homepage> createState() => _HomepageState();
@@ -196,49 +187,8 @@ class _HomepageState extends State<Homepage> {
     final subTxtCol = isDark ? Colors.white60 : subtitleColor;
 
     return Scaffold(
-<<<<<<< HEAD:flutter_application_1/lib/presentation/homepage.dart
-      backgroundColor: bgCol,
-      appBar: AppBar(
-        backgroundColor: cardBg,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.account_circle, color: txtCol, size: 28),
-          onPressed: () async {
-            final refreshed = await Navigator.of(context).push<bool>(
-              MaterialPageRoute(
-                builder: (_) => UserProfileScreen(db: widget.db),
-              ),
-            );
-
-            if (refreshed == true) {
-              await _loadAllData();
-            }
-          },
-        ),
-        title: Text(
-          'Aegymer',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: txtCol,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search, color: txtCol),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Icon(Icons.notifications, color: txtCol),
-            onPressed: () {},
-          ),
-        ],
-      ),
-=======
       backgroundColor: backgroundColor,
       
->>>>>>> origin/main:flutter_application_1/lib/presentation/screen/Home_and_Main/homepage.dart
       body: RefreshIndicator(
         onRefresh: _refreshPage,
         child: ListView(
@@ -358,31 +308,8 @@ class _HomepageState extends State<Homepage> {
                     ),
                 ],
               ),
-<<<<<<< HEAD:flutter_application_1/lib/presentation/homepage.dart
             ),
           ],
-=======
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: widget.onRecordWorkout,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Record Workout'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-            ],
-          ),
->>>>>>> origin/main:flutter_application_1/lib/presentation/screen/Home_and_Main/homepage.dart
         ),
       ),
     );

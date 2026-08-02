@@ -149,6 +149,13 @@ class MealRecommendationService {
     await _mealRepository.removeFoodFromMeal(mealItemId);
   }
 
+  Future<void> updateLoggedFoodAmount(String mealItemId, double newAmount) async {
+    await _mealRepository.updateMealItemAmount(
+      mealItemId: mealItemId,
+      newAmount: newAmount,
+    );
+  }
+
   NutritionMacros _sumMacros(List<MealItemWithFood> items) {
     double calories = 0;
     double protein = 0;

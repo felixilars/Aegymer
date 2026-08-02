@@ -51,6 +51,7 @@ class _MealPrepPageState extends State<MealPrepPage> {
   List<MealRecommendation> _recommendations = <MealRecommendation>[];
   List<MealItemWithFood> _loggedFoods = <MealItemWithFood>[];
   List<Food> _searchResults = <Food>[];
+  MealContext? _userSelectedContext;
 
   @override
   void initState() {
@@ -93,7 +94,7 @@ class _MealPrepPageState extends State<MealPrepPage> {
     });
 
     try {
-      final mealContext = await _service.determineMealContext();
+      final mealContext = _userSelectedContext ?? await _service.determineMealContext();
       final remainingState = await _service.calculateRemainingMealMacros(
         mealContext: mealContext,
       );
@@ -117,7 +118,8 @@ class _MealPrepPageState extends State<MealPrepPage> {
         _isInitialLoading = false;
         _isBusy = false;
       });
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('Error loading meal prep page data: $e\n$stackTrace');
       if (!mounted) return;
 
       setState(() {
@@ -127,6 +129,8 @@ class _MealPrepPageState extends State<MealPrepPage> {
       });
     }
   }
+
+  bool _recommendationsCollapsed = false;
 
   Future<void> _addRecommendationToMeal(MealRecommendation recommendation) async {
     await _service.addFoodToMeal(
@@ -138,13 +142,43 @@ class _MealPrepPageState extends State<MealPrepPage> {
   }
 
   Future<void> _addSearchResultToMeal(Food food) async {
-    await _service.addFoodToMeal(food, mealContext: _mealContext);
-    await _loadAllData(showBusy: true);
+    final double? selectedGrams = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _PortionQuantitySheet(food: food),
+    );
+
+    if (selectedGrams != null && selectedGrams > 0) {
+      await _service.addFoodToMeal(food, mealContext: _mealContext, amount: selectedGrams);
+      await _loadAllData(showBusy: true);
+    }
   }
 
   Future<void> _removeFromMeal(String mealItemId) async {
     await _service.removeFoodFromMeal(mealItemId);
     await _loadAllData(showBusy: true);
+  }
+
+  Future<void> _editMealItem(MealItemWithFood item) async {
+    final double? newGrams = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _PortionQuantitySheet(
+        food: item.food,
+        initialGrams: item.mealItem.amount,
+      ),
+    );
+
+    if (newGrams != null && newGrams > 0) {
+      await _service.updateLoggedFoodAmount(item.mealItem.id, newGrams);
+      await _loadAllData(showBusy: true);
+    }
   }
 
   void _onSearchChanged(String input) {
@@ -242,55 +276,104 @@ class _MealPrepPageState extends State<MealPrepPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Meal Category Selector Bar
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: MealContext.values.map((ctx) {
+                final isSelected = ctx == _mealContext;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ChoiceChip(
+                    label: Text(ctx.displayName),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      if (selected && ctx != _mealContext) {
+                        setState(() {
+                          _userSelectedContext = ctx;
+                        });
+                        _loadAllData(showBusy: true);
+                      }
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           _MealSummaryCard(
             mealContext: _mealContext,
-            targetCalories: _remainingState.target.calories,
-            remainingCalories: _remainingState.remaining.calories,
+            target: _remainingState.target,
+            remaining: _remainingState.remaining,
           ),
+          const SizedBox(height: 16),
+          const _WaterTrackerCard(),
           const SizedBox(height: 16),
           _RemainingMacrosCard(
             target: _remainingState.target,
             remaining: _remainingState.remaining,
           ),
           const SizedBox(height: 24),
-          const _SectionHeader(
-            title: 'Recommended Foods',
-            subtitle: 'Best foods for this meal',
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: _SectionHeader(
+                  title: 'Recommended Foods',
+                  subtitle: 'Best foods for this meal',
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  _recommendationsCollapsed
+                      ? Icons.keyboard_arrow_down
+                      : Icons.keyboard_arrow_up,
+                ),
+                tooltip: _recommendationsCollapsed ? 'Show Recommendations' : 'Hide Recommendations',
+                onPressed: () {
+                  setState(() {
+                    _recommendationsCollapsed = !_recommendationsCollapsed;
+                  });
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 280),
-            transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-            child: _recommendations.isEmpty
-                ? const _EmptyCard(
-                    key: ValueKey('empty-recommendations'),
-                    title: 'No recommendations available.',
-                    message: 'Try searching for a food instead.',
-                  )
-                : Column(
-                    key: ValueKey<int>(_recommendationVersion),
-                    children: _recommendations.map((recommendation) {
-                      final isExpanded = _expandedCards.contains(recommendation.food.id);
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _RecommendationCard(
-                          recommendation: recommendation,
-                          expanded: isExpanded,
-                          onToggle: () {
-                            setState(() {
-                              if (isExpanded) {
-                                _expandedCards.remove(recommendation.food.id);
-                              } else {
-                                _expandedCards.add(recommendation.food.id);
-                              }
-                            });
-                          },
-                          onAdd: () => _addRecommendationToMeal(recommendation),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-          ),
+          if (!_recommendationsCollapsed)
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+              child: _recommendations.isEmpty
+                  ? const _EmptyCard(
+                      key: ValueKey('empty-recommendations'),
+                      title: 'No recommendations available.',
+                      message: 'Try searching for a food instead.',
+                    )
+                  : Column(
+                      key: ValueKey<int>(_recommendationVersion),
+                      children: _recommendations.map((recommendation) {
+                        final isExpanded = _expandedCards.contains(recommendation.food.id);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _RecommendationCard(
+                            recommendation: recommendation,
+                            expanded: isExpanded,
+                            onToggle: () {
+                              setState(() {
+                                if (isExpanded) {
+                                  _expandedCards.remove(recommendation.food.id);
+                                } else {
+                                  _expandedCards.add(recommendation.food.id);
+                                }
+                              });
+                            },
+                            onAdd: () => _addRecommendationToMeal(recommendation),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+            ),
           const SizedBox(height: 24),
           const _SectionHeader(
             title: 'Current Meal',
@@ -313,6 +396,7 @@ class _MealPrepPageState extends State<MealPrepPage> {
                         padding: const EdgeInsets.only(bottom: 10),
                         child: _CurrentMealItemCard(
                           item: item,
+                          onEdit: () => _editMealItem(item),
                           onRemove: () => _removeFromMeal(item.mealItem.id),
                         ),
                       );
@@ -381,20 +465,25 @@ class _MealPrepPageState extends State<MealPrepPage> {
 
 class _MealSummaryCard extends StatelessWidget {
   final MealContext mealContext;
-  final double targetCalories;
-  final double remainingCalories;
+  final NutritionMacros target;
+  final NutritionMacros remaining;
 
   const _MealSummaryCard({
     required this.mealContext,
-    required this.targetCalories,
-    required this.remainingCalories,
+    required this.target,
+    required this.remaining,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final consumed = (targetCalories - remainingCalories).clamp(0, double.infinity);
-    final progress = targetCalories <= 0 ? 0.0 : (consumed / targetCalories).clamp(0.0, 1.0);
+    final isDark = theme.brightness == Brightness.dark;
+    final consumed = (target.calories - remaining.calories).clamp(0.0, double.infinity);
+    final progress = target.calories <= 0 ? 0.0 : (consumed / target.calories).clamp(0.0, 1.0);
+
+    final pProgress = target.protein <= 0 ? 0.0 : ((target.protein - remaining.protein) / target.protein).clamp(0.0, 1.0);
+    final cProgress = target.carbs <= 0 ? 0.0 : ((target.carbs - remaining.carbs) / target.carbs).clamp(0.0, 1.0);
+    final fProgress = target.fat <= 0 ? 0.0 : ((target.fat - remaining.fat) / target.fat).clamp(0.0, 1.0);
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -404,35 +493,299 @@ class _MealSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              mealContext.displayName,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 24,
-              runSpacing: 10,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _LabeledKcal(label: 'Target Calories', value: targetCalories),
-                _LabeledKcal(label: 'Remaining Calories', value: remainingCalories),
-                _LabeledPercent(label: 'Progress', value: progress),
+                Text(
+                  mealContext.displayName,
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${(progress * 100).round()}% Completed',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 14),
-            TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 450),
-              builder: (context, value, child) {
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    minHeight: 10,
-                    value: value,
-                    color: theme.colorScheme.primary,
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                // Radial Macro Ring
+                SizedBox(
+                  width: 110,
+                  height: 110,
+                  child: CustomPaint(
+                    painter: _RadialMacroPainter(
+                      calProgress: progress,
+                      pProgress: pProgress,
+                      cProgress: cProgress,
+                      fProgress: fProgress,
+                      isDark: isDark,
+                      primaryColor: theme.colorScheme.primary,
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${remaining.calories.round()}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                          Text(
+                            'kcal left',
+                            style: TextStyle(fontSize: 10, color: theme.colorScheme.outline),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                );
-              },
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _MacroLegendRow(
+                        color: theme.colorScheme.primary,
+                        label: 'Calories',
+                        value: '${consumed.round()} / ${target.calories.round()} kcal',
+                      ),
+                      const SizedBox(height: 8),
+                      _MacroLegendRow(
+                        color: const Color(0xffFF6B35),
+                        label: 'Protein',
+                        value: '${(target.protein - remaining.protein).round()} / ${target.protein.round()} g',
+                      ),
+                      const SizedBox(height: 8),
+                      _MacroLegendRow(
+                        color: const Color(0xffF59E0B),
+                        label: 'Carbs',
+                        value: '${(target.carbs - remaining.carbs).round()} / ${target.carbs.round()} g',
+                      ),
+                      const SizedBox(height: 8),
+                      _MacroLegendRow(
+                        color: const Color(0xff10B981),
+                        label: 'Fat',
+                        value: '${(target.fat - remaining.fat).round()} / ${target.fat.round()} g',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MacroLegendRow extends StatelessWidget {
+  final Color color;
+  final String label;
+  final String value;
+
+  const _MacroLegendRow({
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+          ],
+        ),
+        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+}
+
+class _RadialMacroPainter extends CustomPainter {
+  final double calProgress;
+  final double pProgress;
+  final double cProgress;
+  final double fProgress;
+  final bool isDark;
+  final Color primaryColor;
+
+  _RadialMacroPainter({
+    required this.calProgress,
+    required this.pProgress,
+    required this.cProgress,
+    required this.fProgress,
+    required this.isDark,
+    required this.primaryColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final strokeWidth = 6.0;
+
+    void drawRing(double radius, double progress, Color color) {
+      final bgPaint = Paint()
+        ..color = isDark ? Colors.white10 : Colors.black12.withValues(alpha: 0.05)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth;
+
+      final fgPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = strokeWidth;
+
+      canvas.drawCircle(center, radius, bgPaint);
+      if (progress > 0) {
+        canvas.drawArc(
+          Rect.fromCircle(center: center, radius: radius),
+          -1.5708, // -90 degrees
+          2 * 3.1415926535 * progress,
+          false,
+          fgPaint,
+        );
+      }
+    }
+
+    drawRing(48.0, calProgress, primaryColor);
+    drawRing(40.0, pProgress, const Color(0xffFF6B35));
+    drawRing(32.0, cProgress, const Color(0xffF59E0B));
+    drawRing(24.0, fProgress, const Color(0xff10B981));
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadialMacroPainter oldDelegate) => true;
+}
+
+class _WaterTrackerCard extends StatefulWidget {
+  const _WaterTrackerCard();
+
+  @override
+  State<_WaterTrackerCard> createState() => _WaterTrackerCardState();
+}
+
+class _WaterTrackerCardState extends State<_WaterTrackerCard> {
+  int _intakeMl = 1250;
+  final int _goalMl = 2500;
+
+  void _addWater(int amount) {
+    setState(() {
+      _intakeMl = (_intakeMl + amount).clamp(0, 5000);
+    });
+  }
+
+  void _resetWater() {
+    setState(() {
+      _intakeMl = 0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final progress = (_intakeMl / _goalMl).clamp(0.0, 1.0);
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 0,
+      color: isDark ? Colors.blue.withValues(alpha: 0.1) : const Color(0xffEFF6FF),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.water_drop, color: Colors.blue, size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Daily Water Intake',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          '$_intakeMl / $_goalMl ml (${(progress * 100).toInt()}%)',
+                          style: theme.textTheme.bodySmall?.copyWith(color: Colors.blue.shade700),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                TextButton(
+                  onPressed: _resetWater,
+                  child: const Text('Reset', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 10,
+                backgroundColor: isDark ? Colors.white10 : Colors.blue.shade100,
+                color: Colors.blue,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _addWater(250),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('+250 ml'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _addWater(500),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('+500 ml'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -835,9 +1188,14 @@ class _RecommendationDetails extends StatelessWidget {
 
 class _CurrentMealItemCard extends StatelessWidget {
   final MealItemWithFood item;
+  final VoidCallback onEdit;
   final VoidCallback onRemove;
 
-  const _CurrentMealItemCard({required this.item, required this.onRemove});
+  const _CurrentMealItemCard({
+    required this.item,
+    required this.onEdit,
+    required this.onRemove,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -870,10 +1228,20 @@ class _CurrentMealItemCard extends StatelessWidget {
                 ],
               ),
             ),
-            IconButton(
-              onPressed: onRemove,
-              tooltip: 'Remove food',
-              icon: const Icon(Icons.delete_outline),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  onPressed: onEdit,
+                  tooltip: 'Edit portion',
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                ),
+                IconButton(
+                  onPressed: onRemove,
+                  tooltip: 'Remove food',
+                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                ),
+              ],
             ),
           ],
         ),
@@ -1144,6 +1512,117 @@ class _SkeletonCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(16),
+      ),
+    );
+  }
+}
+
+class _PortionQuantitySheet extends StatefulWidget {
+  final Food food;
+  final double initialGrams;
+
+  const _PortionQuantitySheet({
+    required this.food,
+    this.initialGrams = 100.0,
+  });
+
+  @override
+  State<_PortionQuantitySheet> createState() => _PortionQuantitySheetState();
+}
+
+class _PortionQuantitySheetState extends State<_PortionQuantitySheet> {
+  late final TextEditingController _controller;
+  late double _grams;
+
+  @override
+  void initState() {
+    super.initState();
+    _grams = widget.initialGrams;
+    _controller = TextEditingController(text: _grams.toStringAsFixed(0));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _setGrams(double value) {
+    setState(() {
+      _grams = value;
+      _controller.text = value.toStringAsFixed(0);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Select Portion: ${widget.food.name}',
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Select or enter amount in grams (g)',
+            style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            children: [50.0, 100.0, 150.0, 200.0, 250.0].map((g) {
+              final isSelected = _grams == g;
+              return ChoiceChip(
+                label: Text('${g.toInt()}g'),
+                selected: isSelected,
+                onSelected: (_) => _setGrams(g),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Portion Size (g)',
+              border: OutlineInputBorder(),
+              suffixText: 'grams',
+            ),
+            onChanged: (val) {
+              final parsed = double.tryParse(val);
+              if (parsed != null && parsed > 0) {
+                _grams = parsed;
+              }
+            },
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => Navigator.pop(context, _grams),
+              child: Text('Add ${_grams.toStringAsFixed(0)}g to Meal'),
+            ),
+          ),
+        ],
       ),
     );
   }

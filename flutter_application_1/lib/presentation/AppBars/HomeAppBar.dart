@@ -11,38 +11,42 @@ const textColor = Color(0xff1F2937);
 const subtitleColor = Color(0xff6B7280);
 
 class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final VoidCallback? onProfilePressed;
 
-  const HomeAppBar({super.key});
+  const HomeAppBar({super.key, this.onProfilePressed});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final iconColor = theme.colorScheme.onSurface;
+
     return AppBar(
-        backgroundColor: cardColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.account_circle, color: textColor, size: 28),
+      backgroundColor: theme.appBarTheme.backgroundColor ?? theme.cardColor,
+      elevation: 0,
+      leading: IconButton(
+        icon: Icon(Icons.account_circle, color: iconColor, size: 28),
+        onPressed: onProfilePressed,
+      ),
+      title: Text(
+        'Aegymer',
+        style: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          color: iconColor,
+        ),
+      ),
+      centerTitle: true,
+      actions: [
+        IconButton(
+          icon: Icon(Icons.search, color: iconColor),
           onPressed: () {},
         ),
-        title: const Text(
-          'Aegyme',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: textColor,
-          ),
+        IconButton(
+          icon: Icon(Icons.notifications, color: iconColor),
+          onPressed: () {},
         ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: textColor),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications, color: textColor),
-            onPressed: () {},
-          ),
-        ],
-      );
+      ],
+    );
   }
 
   @override

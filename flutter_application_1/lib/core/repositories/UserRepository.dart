@@ -17,7 +17,12 @@ class UserRepository {
         fat: user.dailyFat,
       );
     } else {
-      throw Exception('No user found in the database');
+      return const NutritionMacros(
+        calories: 2000.0,
+        protein: 150.0,
+        carbs: 200.0,
+        fat: 60.0,
+      );
     }
   }
 }

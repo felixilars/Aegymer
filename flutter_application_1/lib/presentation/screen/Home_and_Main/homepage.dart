@@ -6,6 +6,8 @@ import 'package:flutter_application_1/core/services/streak_service.dart';
 import 'package:flutter_application_1/presentation/recent_session_popup.dart';
 import 'package:flutter_application_1/presentation/screen/workout_launcher_screen.dart';
 import 'package:flutter_application_1/presentation/widgets/streak_detail_sheet.dart';
+import 'package:flutter_application_1/presentation/screen/workout_progress_screen.dart';
+
 // Color Palette
 const backgroundColor = Color(0xffF5F7FA);
 const cardColor = Colors.white;
@@ -187,7 +189,7 @@ class _HomepageState extends State<Homepage> {
     final subTxtCol = isDark ? Colors.white60 : subtitleColor;
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: bgCol,
       
       body: RefreshIndicator(
         onRefresh: _refreshPage,
@@ -221,7 +223,11 @@ class _HomepageState extends State<Homepage> {
                 ),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
+
+            _buildProgressCard(cardBg, txtCol, subTxtCol),
+
+            const SizedBox(height: 24),
 
             // Recent Sessions Section
             Padding(
@@ -293,6 +299,7 @@ class _HomepageState extends State<Homepage> {
                               context: context,
                               builder: (context) => RecentSessionPopup(
                                 session: session,
+                                db: widget.db,
                               ),
                             );
                           },
@@ -354,44 +361,49 @@ class _HomepageState extends State<Homepage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Daily Streak',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: txtCol,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: accentColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            summary.streakTierName,
-                            style: const TextStyle(
-                              fontSize: 11,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        children: [
+                          Text(
+                            'Daily Streak',
+                            style: TextStyle(
+                              fontSize: 17,
                               fontWeight: FontWeight.bold,
-                              color: accentColor,
+                              color: txtCol,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Best: ${summary.bestDailyStreak} days streak',
-                      style: TextStyle(fontSize: 12, color: subTxtCol),
-                    ),
-                  ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: accentColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              summary.streakTierName,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: accentColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Best: ${summary.bestDailyStreak} days streak',
+                        style: TextStyle(fontSize: 12, color: subTxtCol),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: _openStreakDetailSheet,
                   child: const Text(
@@ -425,24 +437,27 @@ class _HomepageState extends State<Homepage> {
                   ),
                 ),
                 const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${summary.currentDailyStreak} Days',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: txtCol,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${summary.currentDailyStreak} Days',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: txtCol,
+                        ),
                       ),
-                    ),
-                    Text(
-                      summary.currentDailyStreak > 0
-                          ? 'Keep the momentum going!'
-                          : 'Start a workout to ignite!',
-                      style: TextStyle(fontSize: 12, color: subTxtCol),
-                    ),
-                  ],
+                      Text(
+                        summary.currentDailyStreak > 0
+                            ? 'Keep the momentum going!'
+                            : 'Start a workout to ignite!',
+                        style: TextStyle(fontSize: 12, color: subTxtCol),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -547,24 +562,28 @@ class _HomepageState extends State<Homepage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Weekly Goal',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: txtCol,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Weekly Goal',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: txtCol,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Weekly streak: ${summary.currentWeeklyStreak} consecutive weeks 🏆',
-                      style: TextStyle(fontSize: 12, color: subTxtCol),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        'Weekly streak: ${summary.currentWeeklyStreak} consecutive weeks 🏆',
+                        style: TextStyle(fontSize: 12, color: subTxtCol),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: _showSetGoalDialog,
                   child: const Text(
@@ -606,7 +625,7 @@ class _HomepageState extends State<Homepage> {
                 ),
                 const SizedBox(height: 8),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                   child: LinearProgressIndicator(
                     value: completionRate,
                     minHeight: 10,
@@ -683,24 +702,28 @@ class _HomepageState extends State<Homepage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Weekly Summary',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: txtCol,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Weekly Summary',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: txtCol,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '7-day overall statistics',
-                      style: TextStyle(fontSize: 12, color: subTxtCol),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        '7-day overall statistics',
+                        style: TextStyle(fontSize: 12, color: subTxtCol),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: _openStreakDetailSheet,
                   child: const Text(
@@ -823,6 +846,66 @@ class _HomepageState extends State<Homepage> {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressCard(Color cardBg, Color txtCol, Color subTxtCol) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Card(
+        color: cardBg,
+        elevation: 0.5,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => WorkoutProgressScreen(db: widget.db),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.show_chart, color: theme.colorScheme.primary, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Workout Progress Analytics',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: txtCol,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Track your 1RM gains & volume progress over time',
+                        style: TextStyle(fontSize: 12, color: subTxtCol),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: subTxtCol),
+              ],
+            ),
+          ),
         ),
       ),
     );

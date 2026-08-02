@@ -50,6 +50,9 @@ dependencies:
   drift_flutter: ^0.2.8
   smooth_page_indicator: ^1.2.1
 
+  #make http request to api
+  http: ^1.2.0
+
   #Check if it is the first time user open app 
   shared_preferences: ^2.2.2
 

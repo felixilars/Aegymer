@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/presentation/screen/workout_launcher_screen.dart';
-import 'package:flutter_application_1/presentation/screen/knn_demo_screen.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
+import 'package:flutter_application_1/presentation/screen/welcome_screen.dart';
+import 'package:flutter_application_1/presentation/screen/workout_log_screen.dart';
+import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_application_1/core/services/sync_service.dart';
+import 'package:flutter_application_1/core/services/backup_service.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/presentation/homepage.dart';
+import 'package:flutter_application_1/helper/check_firsttime.dart';
+
+import 'package:drift/drift.dart' hide Column;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,15 +32,13 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  final AppDatabase db;
-  const MyApp({super.key, required this.db});
+  const MyApp({super.key});
 
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Aegymer',
-      themeMode: ThemeMode.system,
+      title: 'Flutter Demo',
       theme: ThemeData(
         // This is the theme of your application.
         //

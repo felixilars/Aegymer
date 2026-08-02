@@ -1,4 +1,4 @@
-lib/databases/app_database.dart source_gen:combining_builder                        
+o lib/databases/app_database.dart source_gen:combining_builder                        
 W app_database.g.dart must be included as a part directive in the input library     
   with:                                                                             
       part 'app_database.g.dart';                                                   
@@ -9,7 +9,6 @@ Dự án này là một ứng dụng di động đa nền tảng (Android/iOS) h
 
 Hệ thống sẽ ghi nhận lịch sử tập luyện, tính toán năng lượng tiêu hao, áp dụng phương pháp Tăng tiến Tải trọng (Progressive Overload) và Tự điều chỉnh (Autoregulation) để đề xuất mục tiêu tiếp theo. Song song đó, dựa vào thông tin thể trạng và sở thích ẩm thực (chay, ngọt, dị ứng...), ứng dụng sẽ đề xuất thực đơn và nguyên liệu nấu ăn phù hợp.
 
----
 
 ## Các Quyết Định Thiết Kế Đã Thống Nhất
 

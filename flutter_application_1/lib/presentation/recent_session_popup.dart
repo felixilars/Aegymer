@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:flutter_application_1/models/exercises_with_sets.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
 
 class RecentSessionPopup extends StatefulWidget {
@@ -16,7 +17,7 @@ class RecentSessionPopup extends StatefulWidget {
 
 class _RecentSessionPopupState extends State<RecentSessionPopup> {
   final AppDatabase _db = AppDatabase();
-  List<(WorkoutSet, Exercise)> _workoutSetsWithExercises = [];
+  List<ExerciseWithSets> _exerciseGroups = [];
   bool _loading = true;
 
   @override
@@ -27,22 +28,37 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
 
   Future<void> _loadWorkoutSets() async {
     final sets = await (_db.select(_db.workoutSets).join([
-  drift.innerJoin(
-    _db.exercises,
-    _db.exercises.id.equalsExp(_db.workoutSets.exerciseId),
-  ),
-])
-  ..where(
-    _db.workoutSets.sessionId.equals(widget.session.id),
-  ))
-.get();
+      drift.innerJoin(
+        _db.exercises,
+        _db.exercises.id.equalsExp(_db.workoutSets.exerciseId),
+      ),
+    ])
+      ..where(
+        _db.workoutSets.sessionId.equals(widget.session.id),
+      ))
+    .get();
 
     if (!mounted) return;
 
+    final map = <String, ExerciseWithSets>{};
+
+    for (final row in sets) {
+      final set = row.readTable(_db.workoutSets);
+      final exercise = row.readTable(_db.exercises);
+
+      map.putIfAbsent(
+        exercise.id,
+        () => ExerciseWithSets(
+          exercise: exercise,
+          sets: [],
+        ),
+      );
+
+      map[exercise.id]!.sets.add(set);
+    }
+
     setState(() {
-      _workoutSetsWithExercises = sets
-          .map((row) => (row.readTable(_db.workoutSets), row.readTable(_db.exercises)))
-          .toList();
+      _exerciseGroups = map.values.toList();
       _loading = false;
     });
   }
@@ -89,17 +105,21 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
             const SizedBox(height: 24),
             if (_loading)
               const Center(child: CircularProgressIndicator())
-            else if (_workoutSetsWithExercises.isEmpty)
+            else if (_exerciseGroups.isEmpty)
               const Center(
                 child: Text('No exercises recorded'),
               )
             else
-              Column(
-                children: _workoutSetsWithExercises.map((item) {
-                  final (set, exercise) = item;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Container(
+              SizedBox(
+                height: 370,
+                child: ListView.builder(
+                  itemCount: _exerciseGroups.length,
+                  itemBuilder: (context, index) {
+                    final exerciseWithSets = _exerciseGroups[index];
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Container(
                       decoration: BoxDecoration(
                         color: const Color(0xffF5F7FA),
                         borderRadius: BorderRadius.circular(12),
@@ -112,7 +132,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            exercise.name,
+                            exerciseWithSets.exercise.name,
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -120,60 +140,79 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+                          Column(
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: const [
+                                  Text(
                                     'Reps',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Color(0xff6B7280),
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
                                   Text(
-                                    '${set.reps}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xff1F2937),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
                                     'Weight (kg)',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Color(0xff6B7280),
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${set.weight}',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xff1F2937),
-                                    ),
-                                  ),
                                 ],
                               ),
                             ],
                           ),
+
+                          const SizedBox(height: 4),
+                          Column(
+                            children: exerciseWithSets.sets.map((set) {
+                              return 
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [   
+                                      
+                                      Text(
+                                        '${set.reps}',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xff1F2937),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      
+                                      Text(
+                                        '${set.weight}',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xff1F2937),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                          
                         ],
                       ),
                     ),
-                  );
-                }).toList(),
+                    );
+                  },
+                ),
               ),
-            if (_workoutSetsWithExercises.isNotEmpty && widget.session.notes != null && widget.session.notes!.isNotEmpty) ...[
+            if (_exerciseGroups.isNotEmpty && widget.session.notes != null && widget.session.notes!.isNotEmpty) ...[
               const SizedBox(height: 16),
               Container(
                 decoration: BoxDecoration(

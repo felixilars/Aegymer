@@ -14,7 +14,7 @@ class WorkoutLauncherScreen extends StatefulWidget {
 
 class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
   List<RoutineWithExercises> _routines = [];
-  UserProfile? _profile;
+  UserProfile? _profile; 
   bool _isLoading = true;
 
   @override
@@ -275,13 +275,7 @@ class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Aegymer Workout',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: false,
-      ),
+      
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -518,6 +512,7 @@ class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
                                         : Colors.black26,
                                   ),
                                 ),
+                                
                               ],
                             ),
                           ),

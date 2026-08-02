@@ -94,7 +94,11 @@ class _WelcomePageState extends State<WelcomePage> {
 
       Navigator.pushReplacement(
         context,
+<<<<<<< HEAD
+        MaterialPageRoute(builder: (_) => Homepage(db: _db)),
+=======
         MaterialPageRoute(builder: (_) => const MainPage()),
+>>>>>>> origin/main
       );
     } catch (e) {
       if (!mounted) return;

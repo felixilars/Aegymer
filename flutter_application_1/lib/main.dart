@@ -5,96 +5,31 @@ import 'package:flutter_application_1/presentation/screen/welcome_screen.dart';
 import 'package:flutter_application_1/presentation/screen/workout_log_screen.dart';
 import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
 
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_application_1/core/services/backup_service.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
 import 'package:flutter_application_1/helper/check_firsttime.dart';
 
-
 import 'package:drift/drift.dart' hide Column;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  CheckFirstTime.setFirstTime(false); // Reset first-time flag for testing 
 
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]); // Lock the app to portrait mode
+  await Supabase.initialize(
+    url: 'https://faegwvospgqmsurjpbvo.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhZWd3dm9zcGdxbXN1cmpwYnZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1ODk5MTIsImV4cCI6MjA5NzE2NTkxMn0.gLY0YRlHwNwLOCLEI8Ob-hxtMcT7EtBhXCQQBJQytls',
+  );
 
-  runApp(const MyApp());
+  final db = AppDatabase();
+  final syncService = SyncService(db);
+
+  // Syncing data from Supabase
+  await syncService.syncExercisesFromCloud();
+  await syncService.syncFoodsFromCloud();
+
+  runApp(MyApp(db: db));
 }
-
-// Helper function to automatically insert sample data into Supabase Cloud if table is empty
-Future<void> seedSupabaseCloud() async {
-  final supabase = Supabase.instance.client;
-  try {
-    final existingExercises = await supabase
-        .from('global_exercises')
-        .select('id')
-        
-        .limit(1);
-    if (existingExercises.isEmpty) {
-      print(
-        "Supabase Cloud 'global_exercises' đang trống. Tiến hành seed dữ liệu mẫu...",
-      );
-      await supabase.from('global_exercises').insert([
-        {
-          'name': 'Bench Press',
-          'target_muscle': 'Chest',
-          'equipment': 'Barbell',
-          'description': 'Flat barbell bench press.',
-        },
-        {
-          'name': 'Squat',
-          'target_muscle': 'Quads',
-          'equipment': 'Barbell',
-          'description': 'Barbell back squat.',
-        },
-        {
-          'name': 'Deadlift',
-          'target_muscle': 'Hamstrings',
-          'equipment': 'Barbell',
-          'description': 'Conventional barbell deadlift.',
-        },
-      ]);
-      print("Sample exercises seeded to Supabase!");
-    }
-    final existingFoods = await supabase
-        .from('global_foods')
-        .select('id')
-        .limit(1);
-    if (existingFoods.isEmpty) {
-      print(
-        "Supabase Cloud 'global_foods' is empty. Proceeding to seed sample foods...",
-      );
-      await supabase.from('global_foods').insert([
-        {
-          'name': 'Chicken Breast (Raw, 100g)',
-          'calories': 120.0,
-          'protein': 26.0,
-          'carbs': 0.0,
-          'fat': 1.5,
-          'category': 'Protein',
-        },
-        {
-          'name': 'White Rice (Cooked, 100g)',
-          'calories': 130.0,
-          'protein': 2.7,
-          'carbs': 28.0,
-          'fat': 0.3,
-          'category': 'Carbs',
-        },
-      ]);
-      print("Sample foods seeded to Supabase!");
-    }
-  } catch (e) {
-    print(
-      "Error seeding Supabase: $e (Maybe tables are not created or RLS policy on Supabase is blocking)",
-    );
-  }
-}
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -105,22 +40,123 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        // This is the theme of your application.
+        //
+        // TRY THIS: Try running your application with "flutter run". You'll see
+        // the application has a purple toolbar. Then, without quitting the app,
+        // try changing the seedColor in the colorScheme below to Colors.green
+        // and then invoke "hot reload" (save your changes or press the "hot
+        // reload" button in a Flutter-supported IDE, or press "r" if you used
+        // the command line to start the app).
+        //
+        // Notice that the counter didn't reset back to zero; the application
+        // state is not lost during the reload. To reset the state, use hot
+        // restart instead.
+        //
+        // This works for code too, not just values: Most code changes can be
+        // tested with just a hot reload.
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.light,
+        ),
+        brightness: Brightness.light,
+        useMaterial3: true,
       ),
-      home: FutureBuilder<bool>(
-        future: CheckFirstTime.isFirstTime(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const CircularProgressIndicator();
-          }
-          if (snapshot.hasData && snapshot.data == true) {
-            return const WelcomeScreen();
-          }
-          return const MainPage();
-        },
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
       ),
+      home: Homepage(db: db),
     );
   }
 }
 
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
 
+  // This widget is the home page of your application. It is stateful, meaning
+  // that it has a State object (defined below) that contains fields that affect
+  // how it looks.
+
+  // This class is the configuration for the state. It holds the values (in this
+  // case the title) provided by the parent (in this case the App widget) and
+  // used by the build method of the State. Fields in a Widget subclass are
+  // always marked "final".
+
+  final String title;
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  int _counter = 0;
+
+  void _incrementCounter() {
+    setState(() {
+      // This call to setState tells the Flutter framework that something has
+      // changed in this State, which causes it to rerun the build method below
+      // so that the display can reflect the updated values. If we changed
+      // _counter without calling setState(), then the build method would not be
+      // called again, and so nothing would appear to happen.
+      _counter++;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // This method is rerun every time setState is called, for instance as done
+    // by the _incrementCounter method above.
+    //
+    // The Flutter framework has been optimized to make rerunning build methods
+    // fast, so that you can just rebuild anything that needs updating rather
+    // than having to individually change instances of widgets.
+    return Scaffold(
+      appBar: AppBar(
+        // TRY THIS: Try changing the color here to a specific color (to
+        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
+        // change color while the other colors stay the same.
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        // Here we take the value from the MyHomePage object that was created by
+        // the App.build method, and use it to set our appbar title.
+        title: Text(widget.title),
+      ),
+      body: Center(
+        // Center is a layout widget. It takes a single child and positions it
+        // in the middle of the parent.
+        child: Column(
+          // Column is also a layout widget. It takes a list of children and
+          // arranges them vertically. By default, it sizes itself to fit its
+          // children horizontally, and tries to be as tall as its parent.
+          //
+          // Column has various properties to control how it sizes itself and
+          // how it positions its children. Here we use mainAxisAlignment to
+          // center the children vertically; the main axis here is the vertical
+          // axis because Columns are vertical (the cross axis would be
+          // horizontal).
+          //
+          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
+          // action in the IDE, or press "p" in the console), to see the
+          // wireframe for each widget.
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('You have pushed the button this many times:'),
+            Text(
+              '$_counter',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _incrementCounter,
+        tooltip: 'Increment',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}

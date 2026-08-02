@@ -30,32 +30,28 @@ class SyncService {
         }
       }
 
-      await _db.transaction(() async {
-        for (var item in allData) {
-          await _db
-              .into(_db.exercises)
-              .insertOnConflictUpdate(
-                ExercisesCompanion.insert(
-                  id: item['id'] as String,
-                  name: item['name'] as String,
-                  targetMuscle: item['target_muscle'] as String,
-                  equipment: item['equipment'] as String,
-                  description: Value(item['description'] as String?),
-                  videoUrl: Value(item['video_url'] as String?),
-                  isCustom: const Value(
-                    false,
-                  ), // Global data so isCustom = false
-                  trackingType: Value(item['tracking_type'] as String?),
-                  secondaryTrackingTypes: Value(
-                    item['tracking_types'] != null
-                        ? (item['tracking_types'] is List
-                            ? (item['tracking_types'] as List).join(',')
-                            : item['tracking_types'].toString())
-                        : null,
-                  ),
-                ),
-              );
-        }
+      final companions = allData.map((item) {
+        return ExercisesCompanion.insert(
+          id: item['id'] as String,
+          name: item['name'] as String,
+          targetMuscle: item['target_muscle'] as String,
+          equipment: item['equipment'] as String,
+          description: Value(item['description'] as String?),
+          videoUrl: Value(item['video_url'] as String?),
+          isCustom: const Value(false),
+          trackingType: Value(item['tracking_type'] as String?),
+          secondaryTrackingTypes: Value(
+            item['tracking_types'] != null
+                ? (item['tracking_types'] is List
+                    ? (item['tracking_types'] as List).join(',')
+                    : item['tracking_types'].toString())
+                : null,
+          ),
+        );
+      }).toList();
+
+      await _db.batch((batch) {
+        batch.insertAll(_db.exercises, companions, mode: InsertMode.insertOrReplace);
       });
       print('Sync exercises completed successfully. Total synced: ${allData.length}');
     } catch (e) {
@@ -85,27 +81,25 @@ class SyncService {
         }
       }
 
-      await _db.transaction(() async {
-        for (var item in allData) {
-          await _db
-              .into(_db.foods)
-              .insertOnConflictUpdate(
-                FoodsCompanion.insert(
-                  id: item['id'] as String,
-                  name: item['name'] as String,
-                  calories: (item['calories'] as num).toDouble(),
-                  protein: (item['protein'] as num).toDouble(),
-                  carbs: (item['carbs'] as num).toDouble(),
-                  fat: (item['fat'] as num).toDouble(),
-                  fiber: (item['fiber'] as num?)?.toDouble() ?? 0.0,
-                  sugar: (item['sugar'] as num?)?.toDouble() ?? 0.0,
-                  saturatedFat: (item['saturated_fat'] as num?)?.toDouble() ?? 0.0,
-                  sodium: (item['sodium'] as num?)?.toDouble() ?? 0.0,
-                  category: Value(item['category'] as String?),
-                  isCustom: const Value(false),
-                ),
-              );
-        }
+      final companions = allData.map((item) {
+        return FoodsCompanion.insert(
+          id: item['id'] as String,
+          name: item['name'] as String,
+          calories: (item['calories'] as num).toDouble(),
+          protein: (item['protein'] as num).toDouble(),
+          carbs: (item['carbs'] as num).toDouble(),
+          fat: (item['fat'] as num).toDouble(),
+          fiber: (item['fiber'] as num?)?.toDouble() ?? 0.0,
+          sugar: (item['sugar'] as num?)?.toDouble() ?? 0.0,
+          saturatedFat: (item['saturated_fat'] as num?)?.toDouble() ?? 0.0,
+          sodium: (item['sodium'] as num?)?.toDouble() ?? 0.0,
+          category: Value(item['category'] as String?),
+          isCustom: const Value(false),
+        );
+      }).toList();
+
+      await _db.batch((batch) {
+        batch.insertAll(_db.foods, companions, mode: InsertMode.insertOrReplace);
       });
       print('Sync foods completed successfully. Total synced: ${allData.length}');
     } catch (e) {

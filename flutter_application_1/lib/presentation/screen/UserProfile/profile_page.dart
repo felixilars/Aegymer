@@ -522,6 +522,10 @@ class Profilepage extends State<ProfilePage> {
       target: _target,
       weight: weight,
     );
+    final waterTarget = nutritionService.calculateDailyWaterTarget(
+      weight: weight,
+      activityLevel: _activityLevel,
+    );
 
     final theme = Theme.of(context);
 
@@ -564,6 +568,7 @@ class Profilepage extends State<ProfilePage> {
                 Expanded(child: _buildStatItem('Protein', '${(macros['protein'] ?? 150).round()}g')),
                 Expanded(child: _buildStatItem('Carbs', '${(macros['carbs'] ?? 200).round()}g')),
                 Expanded(child: _buildStatItem('Fat', '${(macros['fat'] ?? 60).round()}g')),
+                Expanded(child: _buildStatItem('Water Goal', '$waterTarget ml')),
               ],
             ),
           ],

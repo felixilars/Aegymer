@@ -13,6 +13,7 @@ import 'package:flutter_application_1/core/services/Meal/scorer/heuristics/food_
 import 'package:flutter_application_1/core/services/Meal/scorer/heuristics/variety_scorer.dart';
 import 'package:flutter_application_1/core/services/Meal/scorer/scorer.dart';
 import 'package:flutter_application_1/core/services/food/openfoodfacts_service.dart';
+import 'package:flutter_application_1/core/services/nutrition_service.dart';
 import 'package:flutter_application_1/models/mealRec_helper/meal_recommendation.dart';
 import 'package:flutter_application_1/models/mealRec_helper/remaining_meal_state.dart';
 import 'package:flutter_application_1/models/mealitem_with_food.dart';
@@ -315,7 +316,7 @@ class _MealPrepPageState extends State<MealPrepPage> {
             remaining: _remainingState.remaining,
           ),
           const SizedBox(height: 16),
-          const _WaterTrackerCard(),
+          _WaterTrackerCard(db: widget.db),
           const SizedBox(height: 16),
           _RemainingMacrosCard(
             target: _remainingState.target,
@@ -733,19 +734,52 @@ class _RadialMacroPainter extends CustomPainter {
 }
 
 class _WaterTrackerCard extends StatefulWidget {
-  const _WaterTrackerCard();
+  final AppDatabase db;
+
+  const _WaterTrackerCard({required this.db});
 
   @override
   State<_WaterTrackerCard> createState() => _WaterTrackerCardState();
 }
 
 class _WaterTrackerCardState extends State<_WaterTrackerCard> {
-  int _intakeMl = 1250;
-  final int _goalMl = 2500;
+  int _intakeMl = 0;
+  int _goalMl = 2450; // Dynamic default based on standard 70kg * 35ml
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserWaterGoal();
+  }
+
+  Future<void> _loadUserWaterGoal() async {
+    try {
+      final profiles = await widget.db.select(widget.db.userProfiles).get();
+      if (profiles.isNotEmpty) {
+        final profile = profiles.first;
+        final activityStr = profile.activityLevel >= 1.725
+            ? 'Very Active'
+            : profile.activityLevel >= 1.55
+            ? 'Moderately Active'
+            : profile.activityLevel >= 1.375
+            ? 'Lightly Active'
+            : 'Sedentary';
+        final goal = NutritionService().calculateDailyWaterTarget(
+          weight: profile.weight,
+          activityLevel: activityStr,
+        );
+        if (mounted) {
+          setState(() {
+            _goalMl = goal;
+          });
+        }
+      }
+    } catch (_) {}
+  }
 
   void _addWater(int amount) {
     setState(() {
-      _intakeMl = (_intakeMl + amount).clamp(0, 5000);
+      _intakeMl = (_intakeMl + amount).clamp(0, 6000);
     });
   }
 

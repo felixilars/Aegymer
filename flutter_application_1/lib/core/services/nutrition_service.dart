@@ -76,31 +76,29 @@ class NutritionService {
     };
   }
 
-  /// Calculates personalized daily water intake target in milliliters (ml)
-  /// Based on body weight (35ml / kg) and activity level.
   int calculateDailyWaterTarget({
     required double weight,
-    double activityLevel = 1.55,
+    required String activityLevel,
   }) {
-    // Base intake: 35 ml per kg of body weight
-    double baseWaterMl = weight * 35.0;
-
-    // Activity adjustment bonus (in ml)
-    double activityBonus = 500.0;
-    if (activityLevel >= 1.9) {
-      activityBonus = 1000.0;
-    } else if (activityLevel >= 1.725) {
-      activityBonus = 750.0;
-    } else if (activityLevel >= 1.55) {
-      activityBonus = 500.0;
-    } else if (activityLevel >= 1.375) {
-      activityBonus = 350.0;
-    } else {
-      activityBonus = 0.0;
+    double factor = 1.0;
+    switch (activityLevel.toLowerCase().trim()) {
+      case 'sedentary':
+        factor = 1.0;
+        break;
+      case 'lightly active':
+        factor = 1.15;
+        break;
+      case 'moderately active':
+        factor = 1.3;
+        break;
+      case 'very active':
+        factor = 1.45;
+        break;
+      case 'extra active':
+        factor = 1.6;
+        break;
     }
-
-    final totalTarget = baseWaterMl + activityBonus;
-    // Clamp between 1500 ml and 4500 ml for safety
-    return totalTarget.clamp(1500.0, 4500.0).round();
+    final waterMl = (weight * 35.0) * factor;
+    return waterMl.round().clamp(1500, 4500);
   }
 }

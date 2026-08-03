@@ -7,20 +7,34 @@ class OpenFoodFactsService {
   final http.Client _client = http.Client();
 
   Future<List<Ingredient>> searchFood(String query) async {
-    final uri = Uri.parse('https://world.openfoodfacts.org/api/v2/search?categories_tags_en=$query&json=1');
+    final uri = Uri.https(
+      'world.openfoodfacts.org',
+      '/cgi/search.pl',
+      {
+        'search_terms': query,
+        'search_simple': '1',
+        'action': 'process',
+        'json': '1',
+        'page_size': '30',
+      },
+    );
 
-    final response =  await _client.get(uri);
+    final response = await _client.get(uri);
 
     if (response.statusCode != 200) {
       throw Exception('Failed to load food data');
-    }else {
-      final data = jsonDecode(response.body);
-      if (data['status'] != 1) {
-        return [];
-      }
-      final products = data['products'] as List<dynamic>;
-      return products.map((product) => _mapProduct(product)).toList();
     }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final products = data['products'];
+    if (products is! List) {
+      return [];
+    }
+
+    return products
+        .whereType<Map<String, dynamic>>()
+        .map(_mapProduct)
+        .toList();
   }
 
   Future<Ingredient?> getFoodByBarcode(String barcode) async {

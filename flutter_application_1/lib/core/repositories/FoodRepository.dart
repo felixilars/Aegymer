@@ -23,18 +23,18 @@ class FoodRepository {
       return response;
     } else {
       final openFoodFactsResults = await _openFoodFactsService.searchFood(name);
-      final foods = openFoodFactsResults.map((ingredient) => Food(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name : ingredient.name,
-        calories: ingredient.calories,  
-        protein: ingredient.protein,
-        carbs: ingredient.carbs,
-        fat: ingredient.fat,
-        category: ingredient.category,
-        fiber: ingredient.fiber,
-        sugar: ingredient.sugar,
-        saturatedFat: ingredient.saturatedFat,
-        sodium: ingredient.sodium,
+      final foods = openFoodFactsResults.asMap().entries.map((entry) => Food(
+        id: _buildFoodId(entry.value.name, entry.key),
+        name : entry.value.name,
+        calories: entry.value.calories,  
+        protein: entry.value.protein,
+        carbs: entry.value.carbs,
+        fat: entry.value.fat,
+        category: entry.value.category,
+        fiber: entry.value.fiber,
+        sugar: entry.value.sugar,
+        saturatedFat: entry.value.saturatedFat,
+        sodium: entry.value.sodium,
         isCustom: true,
       )).toList();
       await saveFoods(foods);
@@ -50,7 +50,7 @@ class FoodRepository {
         return null;
       } else {
         final food = Food(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          id: _buildFoodId(ingredient.name, 0),
           name : ingredient.name,
           calories: ingredient.calories,  
           protein: ingredient.protein,
@@ -154,6 +154,11 @@ class FoodRepository {
   /// Delete a food
   Future<void> deleteFood(String id){
     return (_db.delete(_db.foods)..where((tbl)=>tbl.id.equals(id))).go();
+  }
+
+  String _buildFoodId(String name, int index) {
+    final sanitized = name.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    return 'off-$sanitized-${DateTime.now().microsecondsSinceEpoch}-$index';
   }
 
  

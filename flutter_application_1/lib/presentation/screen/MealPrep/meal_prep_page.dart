@@ -218,7 +218,8 @@ class _MealPrepPageState extends State<MealPrepPage> {
           _searchResults = results;
           _isSearching = false;
         });
-      } catch (_) {
+      } catch (e, stackTrace) {
+        debugPrint('Search failed for "$query": $e\n$stackTrace');
         if (!mounted) return;
         setState(() {
           _searchResults = <Food>[];

@@ -1482,63 +1482,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _LabeledKcal extends StatelessWidget {
-  final String label;
-  final double value;
-
-  const _LabeledKcal({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: theme.textTheme.labelLarge),
-        const SizedBox(height: 3),
-        _AnimatedNumberText(
-          value: value,
-          suffix: 'kcal',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _LabeledPercent extends StatelessWidget {
-  final String label;
-  final double value;
-
-  const _LabeledPercent({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: theme.textTheme.labelLarge),
-        const SizedBox(height: 3),
-        TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0, end: value),
-          duration: const Duration(milliseconds: 450),
-          builder: (context, current, child) {
-            return Text(
-              '${(current * 100).toStringAsFixed(0)}%',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
 class _AnimatedNumberText extends StatelessWidget {
   final double value;
   final String suffix;

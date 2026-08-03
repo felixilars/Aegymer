@@ -8,10 +8,10 @@ class Foods extends Table {
   RealColumn get protein => real()();
   RealColumn get carbs => real()();
   RealColumn get fat => real()();
-  RealColumn get fiber => real()();
-  RealColumn get sugar => real()();
-  RealColumn get saturatedFat => real()();
-  RealColumn get sodium => real()();
+  RealColumn get fiber => real().withDefault(const Constant(0.0))();
+  RealColumn get sugar => real().withDefault(const Constant(0.0))();
+  RealColumn get saturatedFat => real().withDefault(const Constant(0.0))();
+  RealColumn get sodium => real().withDefault(const Constant(0.0))();
   TextColumn get category => text().nullable()();
 
   // Is this a user-added food or a sample food synchronized from the system?

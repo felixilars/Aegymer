@@ -191,7 +191,24 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
 
   void _showAddExerciseBottomSheet() {
     String searchPattern = '';
-    List<Exercise> filtered = List.from(_availableExercises);
+    String selectedMuscleFilter = 'All';
+
+    final List<String> muscleGroups = [
+      'All',
+      'Chest',
+      'Back',
+      'Lats',
+      'Shoulders',
+      'Biceps',
+      'Triceps',
+      'Quads',
+      'Hamstrings',
+      'Glutes',
+      'Calves',
+      'Abs',
+      'Cardio',
+      'Full Body',
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -203,6 +220,18 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             final isDark = Theme.of(context).brightness == Brightness.dark;
+
+            final filtered = _availableExercises.where((ex) {
+              final matchesMuscle = selectedMuscleFilter == 'All' ||
+                  ex.targetMuscle.toLowerCase().contains(selectedMuscleFilter.toLowerCase());
+              final matchesSearch = WorkoutCalculator.matchesSearch(
+                exerciseName: ex.name,
+                targetMuscle: ex.targetMuscle,
+                query: searchPattern,
+              );
+              return matchesMuscle && matchesSearch;
+            }).toList();
+
             return Container(
               height: MediaQuery.of(context).size.height * 0.75,
               padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 20.0),
@@ -250,17 +279,34 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
                     onChanged: (val) {
-                      searchPattern = val;
                       setModalState(() {
-                        filtered = _availableExercises
-                            .where((ex) => WorkoutCalculator.matchesSearch(
-                                  exerciseName: ex.name,
-                                  targetMuscle: ex.targetMuscle,
-                                  query: searchPattern,
-                                ))
-                            .toList();
+                        searchPattern = val;
                       });
                     },
+                  ),
+                  const SizedBox(height: 10.0),
+                  SizedBox(
+                    height: 38,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: muscleGroups.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, i) {
+                        final m = muscleGroups[i];
+                        final isSelected = selectedMuscleFilter == m;
+                        return ChoiceChip(
+                          label: Text(m),
+                          selected: isSelected,
+                          onSelected: (val) {
+                            if (val) {
+                              setModalState(() {
+                                selectedMuscleFilter = m;
+                              });
+                            }
+                          },
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(height: 12.0),
                   Expanded(
@@ -333,7 +379,7 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
                       onPressed: () {
                         Navigator.of(context).pop();
                       },
-                      child: const Text('Xong'),
+                      child: const Text('Done'),
                     ),
                   ),
                 ],
@@ -524,7 +570,7 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
                               itemBuilder: (context, idx) {
                                 final ex = _selectedExercises[idx];
                                 return Card(
-                                  key: ValueKey(ex.id),
+                                  key: ValueKey('reorder-$idx-${ex.id}'),
                                   margin: const EdgeInsets.symmetric(vertical: 4.0),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),

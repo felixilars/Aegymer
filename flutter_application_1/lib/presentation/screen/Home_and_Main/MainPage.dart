@@ -5,6 +5,7 @@ import 'package:flutter_application_1/presentation/screen/Home_and_Main/homepage
 import 'package:flutter_application_1/presentation/screen/MealPrep/meal_prep_page.dart';
 import 'package:flutter_application_1/presentation/screen/UserProfile/profile_page.dart';
 import 'package:flutter_application_1/presentation/screen/workout_launcher_screen.dart';
+import 'package:flutter_application_1/presentation/screen/workout_progress_screen.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
 
 class MainPage extends StatefulWidget {
@@ -19,7 +20,7 @@ class _MainPageState extends State<MainPage> {
 
   late final AppDatabase _db;
   late final List<Widget> _pages;
-  late final List<Widget> _appbars;
+  late final List<PreferredSizeWidget> _appbars;
 
   @override
   void initState() {
@@ -38,15 +39,21 @@ class _MainPageState extends State<MainPage> {
       ),
       MealPrepPage(db: _db),
       WorkoutLauncherScreen(db: _db),
-      ProfilePage(db: _db),
+      WorkoutProgressScreen(db: _db),
     ];
 
     _appbars = [
-      const HomeAppBar(),
-      const HomeAppBar(),
-      const RecordWorkoutAppBar(),
-      const HomeAppBar(),
+      HomeAppBar(onProfilePressed: _openProfile),
+      const PreferredSize(preferredSize: Size.zero, child: SizedBox.shrink()),
+      RecordWorkoutAppBar(onHomePressed: () => setState(() => _selectedIndex = 0)),
+      const PreferredSize(preferredSize: Size.zero, child: SizedBox.shrink()),
     ];
+  }
+
+  void _openProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => ProfilePage(db: _db)),
+    );
   }
 
   @override
@@ -57,8 +64,11 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    final currentAppBar = _appbars[_selectedIndex];
+    final hasAppBar = currentAppBar.preferredSize.height > 0;
+
     return Scaffold(
-      appBar: _appbars[_selectedIndex] as PreferredSizeWidget,
+      appBar: hasAppBar ? currentAppBar : null,
       body: _pages[_selectedIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
@@ -75,9 +85,12 @@ class _MainPageState extends State<MainPage> {
           ),
           NavigationDestination(
             icon: Icon(Icons.fitness_center),
-            label: "Workout",
+            label: "Process",
           ),
-          NavigationDestination(icon: Icon(Icons.person), label: "Profile"),
+          NavigationDestination(
+            icon: Icon(Icons.show_chart),
+            label: "Progress",
+          ),
         ],
       ),
     );

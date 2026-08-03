@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
-import 'package:flutter_application_1/presentation/screen/welcome_screen.dart';
-import 'package:flutter_application_1/presentation/screen/workout_log_screen.dart';
 import 'package:flutter_application_1/core/services/sync_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_application_1/core/services/backup_service.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/helper/check_firsttime.dart';
 
-import 'package:drift/drift.dart' hide Column;
+import 'package:flutter_application_1/core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,52 +18,26 @@ void main() async {
   final db = AppDatabase();
   final syncService = SyncService(db);
 
-  // Syncing data from Supabase
-  await syncService.syncExercisesFromCloud();
-  await syncService.syncFoodsFromCloud();
+  // Sync data asynchronously in background without blocking UI startup
+  unawaited(syncService.syncExercisesFromCloud());
+  unawaited(syncService.syncFoodsFromCloud());
 
   runApp(const MyApp());
 }
 
+void unawaited(Future<void>? future) {}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.light,
-        ),
-        brightness: Brightness.light,
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      title: 'Aegymer',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
       home: const MainPage(),
     );
   }

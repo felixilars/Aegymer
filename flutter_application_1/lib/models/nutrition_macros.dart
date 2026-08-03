@@ -4,7 +4,7 @@ class NutritionMacros {
   final double carbs;
   final double fat;
 
-  NutritionMacros({
+  const NutritionMacros({
     required this.calories,
     required this.protein,
     required this.carbs,

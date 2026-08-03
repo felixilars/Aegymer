@@ -429,12 +429,18 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         setsCompanions: finalCompanions,
       );
 
+      double totalVolume = 0.0;
+      for (final companion in finalCompanions) {
+        final w = companion.weight.value;
+        final r = companion.reps.value;
+        totalVolume += (w * r);
+      }
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Workout saved successfully!'),
-            backgroundColor: Colors.green,
-          ),
+        await _showPostWorkoutSummaryDialog(
+          totalVolume: totalVolume,
+          totalSets: finalCompanions.length,
+          durationSeconds: _secondsElapsed,
         );
         Navigator.of(context).pop(true);
       }
@@ -455,6 +461,70 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         });
       }
     }
+  }
+
+  Future<void> _showPostWorkoutSummaryDialog({
+    required double totalVolume,
+    required int totalSets,
+    required int durationSeconds,
+  }) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Column(
+          children: [
+            const Icon(Icons.emoji_events, size: 56, color: Colors.amber),
+            const SizedBox(height: 8),
+            const Text(
+              'Workout Complete!',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Great job! Your session has been saved to your progress history.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildSummaryStat('Duration', _formatDuration(durationSeconds), Icons.timer),
+                _buildSummaryStat('Sets', '$totalSets', Icons.fitness_center),
+                _buildSummaryStat('Volume', '${totalVolume.toStringAsFixed(0)} kg', Icons.stacked_bar_chart),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Awesome!'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryStat(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      ],
+    );
   }
 
   void _scrollToPage(int index) {
@@ -709,8 +779,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           const SizedBox(height: 16.0),
 
           // Timer and Tracking Mode Selector Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               _buildTrackingTypeSelectorButton(ex),
               // Exercise stopwatch
@@ -724,6 +797,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
                       Icons.timer_outlined,
@@ -1259,7 +1333,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         IconButton(
-          icon: const Icon(Icons.remove_circle_outline, size: 16),
+          icon: const Icon(Icons.remove_circle_outline, size: 18),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          visualDensity: VisualDensity.compact,
           onPressed: () {
             final w = double.tryParse(localSet.weightController.text) ?? 0.0;
             localSet.weightController.text = LocalWorkoutSet.formatWeight(
@@ -1272,11 +1349,18 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             controller: localSet.weightController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textAlign: TextAlign.center,
-            decoration: const InputDecoration(border: InputBorder.none),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 4),
+              border: InputBorder.none,
+            ),
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.add_circle_outline, size: 16),
+          icon: const Icon(Icons.add_circle_outline, size: 18),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          visualDensity: VisualDensity.compact,
           onPressed: () {
             final w = double.tryParse(localSet.weightController.text) ?? 0.0;
             localSet.weightController.text = LocalWorkoutSet.formatWeight(
@@ -1293,7 +1377,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         IconButton(
-          icon: const Icon(Icons.remove_circle_outline, size: 16),
+          icon: const Icon(Icons.remove_circle_outline, size: 18),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          visualDensity: VisualDensity.compact,
           onPressed: () {
             final r = int.tryParse(localSet.repsController.text) ?? 0;
             localSet.repsController.text = max(0, r - 1).toString();
@@ -1304,11 +1391,18 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             controller: localSet.repsController,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
-            decoration: const InputDecoration(border: InputBorder.none),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 4),
+              border: InputBorder.none,
+            ),
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.add_circle_outline, size: 16),
+          icon: const Icon(Icons.add_circle_outline, size: 18),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          visualDensity: VisualDensity.compact,
           onPressed: () {
             final r = int.tryParse(localSet.repsController.text) ?? 0;
             localSet.repsController.text = (r + 1).toString();
@@ -1504,7 +1598,7 @@ class _AddExerciseSheet extends StatefulWidget {
 class _AddExerciseSheetState extends State<_AddExerciseSheet> {
   final TextEditingController _searchController = TextEditingController();
   List<Exercise> _filteredExercises = [];
-  String _selectedMuscleFilter = 'Tất cả';
+  String _selectedMuscleFilter = 'All';
 
   @override
   void initState() {
@@ -1523,7 +1617,7 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
     setState(() {
       _filteredExercises = widget.allExercises.where((ex) {
         final matchesMuscle =
-            _selectedMuscleFilter == 'Tất cả' ||
+            _selectedMuscleFilter == 'All' ||
             ex.targetMuscle == _selectedMuscleFilter;
         final matchesSearch = WorkoutCalculator.matchesSearch(
           exerciseName: ex.name,
@@ -1568,55 +1662,55 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
                       items: const [
                         DropdownMenuItem(
                           value: 'Chest',
-                          child: Text('Ngực (Chest)'),
+                          child: Text('Chest'),
                         ),
                         DropdownMenuItem(
                           value: 'Back',
-                          child: Text('Lưng (Back)'),
+                          child: Text('Back'),
                         ),
                         DropdownMenuItem(
                           value: 'Lats',
-                          child: Text('Xô (Lats)'),
+                          child: Text('Lats'),
                         ),
                         DropdownMenuItem(
                           value: 'Shoulders',
-                          child: Text('Vai (Shoulders)'),
+                          child: Text('Shoulders'),
                         ),
                         DropdownMenuItem(
                           value: 'Biceps',
-                          child: Text('Tay trước (Biceps)'),
+                          child: Text('Biceps'),
                         ),
                         DropdownMenuItem(
                           value: 'Triceps',
-                          child: Text('Tay sau (Triceps)'),
+                          child: Text('Triceps'),
                         ),
                         DropdownMenuItem(
                           value: 'Quads',
-                          child: Text('Đùi trước (Quads)'),
+                          child: Text('Quads'),
                         ),
                         DropdownMenuItem(
                           value: 'Hamstrings',
-                          child: Text('Đùi sau (Hamstrings)'),
+                          child: Text('Hamstrings'),
                         ),
                         DropdownMenuItem(
                           value: 'Glutes',
-                          child: Text('Mông (Glutes)'),
+                          child: Text('Glutes'),
                         ),
                         DropdownMenuItem(
                           value: 'Calves',
-                          child: Text('Bắp chuối (Calves)'),
+                          child: Text('Calves'),
                         ),
                         DropdownMenuItem(
                           value: 'Abs',
-                          child: Text('Bụng (Abs)'),
+                          child: Text('Abs'),
                         ),
                         DropdownMenuItem(
                           value: 'Cardio',
-                          child: Text('Tim mạch (Cardio)'),
+                          child: Text('Cardio'),
                         ),
                         DropdownMenuItem(
                           value: 'Full Body',
-                          child: Text('Toàn thân (Full Body)'),
+                          child: Text('Full Body'),
                         ),
                       ],
                       onChanged: (val) {

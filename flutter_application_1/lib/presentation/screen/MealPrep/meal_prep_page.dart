@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
 import 'package:flutter_application_1/core/enums/meal_context.dart';
 import 'package:flutter_application_1/core/repositories/FoodRepository.dart';
@@ -13,6 +14,7 @@ import 'package:flutter_application_1/core/services/Meal/scorer/heuristics/food_
 import 'package:flutter_application_1/core/services/Meal/scorer/heuristics/variety_scorer.dart';
 import 'package:flutter_application_1/core/services/Meal/scorer/scorer.dart';
 import 'package:flutter_application_1/core/services/food/openfoodfacts_service.dart';
+import 'package:flutter_application_1/core/services/nutrition_service.dart';
 import 'package:flutter_application_1/models/mealRec_helper/meal_recommendation.dart';
 import 'package:flutter_application_1/models/mealRec_helper/remaining_meal_state.dart';
 import 'package:flutter_application_1/models/mealitem_with_food.dart';
@@ -51,6 +53,7 @@ class _MealPrepPageState extends State<MealPrepPage> {
   List<MealRecommendation> _recommendations = <MealRecommendation>[];
   List<MealItemWithFood> _loggedFoods = <MealItemWithFood>[];
   List<Food> _searchResults = <Food>[];
+  MealContext? _userSelectedContext;
 
   @override
   void initState() {
@@ -94,7 +97,8 @@ class _MealPrepPageState extends State<MealPrepPage> {
     });
 
     try {
-      final mealContext = await _service.determineMealContext();
+      final mealContext =
+          _userSelectedContext ?? await _service.determineMealContext();
       final remainingState = await _service.calculateRemainingMealMacros(
         mealContext: mealContext,
       );
@@ -118,7 +122,8 @@ class _MealPrepPageState extends State<MealPrepPage> {
         _isInitialLoading = false;
         _isBusy = false;
       });
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('Error loading meal prep page data: $e\n$stackTrace');
       if (!mounted) return;
 
       setState(() {
@@ -161,6 +166,25 @@ class _MealPrepPageState extends State<MealPrepPage> {
   Future<void> _removeFromMeal(String mealItemId) async {
     await _service.removeFoodFromMeal(mealItemId);
     await _loadAllData(showBusy: true);
+  }
+
+  Future<void> _editMealItem(MealItemWithFood item) async {
+    final double? newGrams = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _PortionQuantitySheet(
+        food: item.food,
+        initialGrams: item.mealItem.amount,
+      ),
+    );
+
+    if (newGrams != null && newGrams > 0) {
+      await _service.updateLoggedFoodAmount(item.mealItem.id, newGrams);
+      await _loadAllData(showBusy: true);
+    }
   }
 
   void _onSearchChanged(String input) {
@@ -405,20 +429,70 @@ class _MealPrepPageState extends State<MealPrepPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Meal Category Selector Bar
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: MealContext.values.map((ctx) {
+                final isSelected = ctx == _mealContext;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ChoiceChip(
+                    label: Text(ctx.displayName),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      if (selected && ctx != _mealContext) {
+                        setState(() {
+                          _userSelectedContext = ctx;
+                        });
+                        _loadAllData(showBusy: true);
+                      }
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           _MealSummaryCard(
             mealContext: _mealContext,
-            targetCalories: _remainingState.target.calories,
-            remainingCalories: _remainingState.remaining.calories,
+            target: _remainingState.target,
+            remaining: _remainingState.remaining,
           ),
+          const SizedBox(height: 16),
+          _WaterTrackerCard(db: widget.db),
           const SizedBox(height: 16),
           _RemainingMacrosCard(
             target: _remainingState.target,
             remaining: _remainingState.remaining,
           ),
           const SizedBox(height: 24),
-          const _SectionHeader(
-            title: 'Recommended Foods',
-            subtitle: 'Best foods for this meal',
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: _SectionHeader(
+                  title: 'Recommended Foods',
+                  subtitle: 'Best foods for this meal',
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  _recommendationsCollapsed
+                      ? Icons.keyboard_arrow_down
+                      : Icons.keyboard_arrow_up,
+                ),
+                tooltip: _recommendationsCollapsed
+                    ? 'Show Recommendations'
+                    : 'Hide Recommendations',
+                onPressed: () {
+                  setState(() {
+                    _recommendationsCollapsed = !_recommendationsCollapsed;
+                  });
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           AnimatedSwitcher(
@@ -481,6 +555,7 @@ class _MealPrepPageState extends State<MealPrepPage> {
                         padding: const EdgeInsets.only(bottom: 10),
                         child: _CurrentMealItemCard(
                           item: item,
+                          onEdit: () => _editMealItem(item),
                           onRemove: () => _removeFromMeal(item.mealItem.id),
                         ),
                       );
@@ -551,13 +626,13 @@ class _MealPrepPageState extends State<MealPrepPage> {
 
 class _MealSummaryCard extends StatelessWidget {
   final MealContext mealContext;
-  final double targetCalories;
-  final double remainingCalories;
+  final NutritionMacros target;
+  final NutritionMacros remaining;
 
   const _MealSummaryCard({
     required this.mealContext,
-    required this.targetCalories,
-    required this.remainingCalories,
+    required this.target,
+    required this.remaining,
   });
 
   @override
@@ -579,16 +654,310 @@ class _MealSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  mealContext.displayName,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${(progress * 100).round()}% Completed',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                // Radial Macro Ring
+                SizedBox(
+                  width: 110,
+                  height: 110,
+                  child: CustomPaint(
+                    painter: _RadialMacroPainter(
+                      calProgress: progress,
+                      pProgress: pProgress,
+                      cProgress: cProgress,
+                      fProgress: fProgress,
+                      isDark: isDark,
+                      primaryColor: theme.colorScheme.primary,
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${remaining.calories.round()}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          Text(
+                            'kcal left',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _MacroLegendRow(
+                        color: theme.colorScheme.primary,
+                        label: 'Calories',
+                        value:
+                            '${consumed.round()} / ${target.calories.round()} kcal',
+                      ),
+                      const SizedBox(height: 8),
+                      _MacroLegendRow(
+                        color: const Color(0xffFF6B35),
+                        label: 'Protein',
+                        value:
+                            '${(target.protein - remaining.protein).round()} / ${target.protein.round()} g',
+                      ),
+                      const SizedBox(height: 8),
+                      _MacroLegendRow(
+                        color: const Color(0xffF59E0B),
+                        label: 'Carbs',
+                        value:
+                            '${(target.carbs - remaining.carbs).round()} / ${target.carbs.round()} g',
+                      ),
+                      const SizedBox(height: 8),
+                      _MacroLegendRow(
+                        color: const Color(0xff10B981),
+                        label: 'Fat',
+                        value:
+                            '${(target.fat - remaining.fat).round()} / ${target.fat.round()} g',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MacroLegendRow extends StatelessWidget {
+  final Color color;
+  final String label;
+  final String value;
+
+  const _MacroLegendRow({
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
             Text(
               mealContext.displayName,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 24,
-              runSpacing: 10,
+          ],
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+}
+
+class _RadialMacroPainter extends CustomPainter {
+  final double calProgress;
+  final double pProgress;
+  final double cProgress;
+  final double fProgress;
+  final bool isDark;
+  final Color primaryColor;
+
+  _RadialMacroPainter({
+    required this.calProgress,
+    required this.pProgress,
+    required this.cProgress,
+    required this.fProgress,
+    required this.isDark,
+    required this.primaryColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final strokeWidth = 6.0;
+
+    void drawRing(double radius, double progress, Color color) {
+      final bgPaint = Paint()
+        ..color = isDark
+            ? Colors.white10
+            : Colors.black12.withValues(alpha: 0.05)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth;
+
+      final fgPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = strokeWidth;
+
+      canvas.drawCircle(center, radius, bgPaint);
+      if (progress > 0) {
+        canvas.drawArc(
+          Rect.fromCircle(center: center, radius: radius),
+          -1.5708, // -90 degrees
+          2 * 3.1415926535 * progress,
+          false,
+          fgPaint,
+        );
+      }
+    }
+
+    drawRing(48.0, calProgress, primaryColor);
+    drawRing(40.0, pProgress, const Color(0xffFF6B35));
+    drawRing(32.0, cProgress, const Color(0xffF59E0B));
+    drawRing(24.0, fProgress, const Color(0xff10B981));
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadialMacroPainter oldDelegate) => true;
+}
+
+class _WaterTrackerCard extends StatefulWidget {
+  final AppDatabase db;
+
+  const _WaterTrackerCard({required this.db});
+
+  @override
+  State<_WaterTrackerCard> createState() => _WaterTrackerCardState();
+}
+
+class _WaterTrackerCardState extends State<_WaterTrackerCard> {
+  int _intakeMl = 0;
+  int _goalMl = 2450; // Dynamic default based on standard 70kg * 35ml
+
+  String get _todayKey {
+    final now = DateTime.now();
+    return 'water_intake_${now.year}_${now.month}_${now.day}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserWaterData();
+  }
+
+  Future<void> _loadUserWaterData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedIntake = prefs.getInt(_todayKey) ?? 0;
+
+      final profiles = await widget.db.select(widget.db.userProfiles).get();
+      int goal = 2450;
+      if (profiles.isNotEmpty) {
+        final profile = profiles.first;
+        final activityStr = profile.activityLevel >= 1.725
+            ? 'Very Active'
+            : profile.activityLevel >= 1.55
+            ? 'Moderately Active'
+            : profile.activityLevel >= 1.375
+            ? 'Lightly Active'
+            : 'Sedentary';
+        goal = NutritionService().calculateDailyWaterTarget(
+          weight: profile.weight,
+          activityLevel: activityStr,
+        );
+      }
+      if (mounted) {
+        setState(() {
+          _intakeMl = savedIntake;
+          _goalMl = goal;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _addWater(int amount) async {
+    final newIntake = (_intakeMl + amount).clamp(0, 6000);
+    setState(() {
+      _intakeMl = newIntake;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_todayKey, newIntake);
+    } catch (_) {}
+  }
+
+  Future<void> _resetWater() async {
+    setState(() {
+      _intakeMl = 0;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_todayKey, 0);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final progress = (_intakeMl / _goalMl).clamp(0.0, 1.0);
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 0,
+      color: isDark
+          ? Colors.blue.withValues(alpha: 0.1)
+          : const Color(0xffEFF6FF),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _LabeledKcal(label: 'Target Calories', value: targetCalories),
                 _LabeledKcal(
@@ -598,21 +967,45 @@ class _MealSummaryCard extends StatelessWidget {
                 _LabeledPercent(label: 'Progress', value: progress),
               ],
             ),
-            const SizedBox(height: 14),
-            TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 450),
-              builder: (context, value, child) {
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    minHeight: 10,
-                    value: value,
-                    color: theme.colorScheme.primary,
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 10,
+                backgroundColor: isDark ? Colors.white10 : Colors.blue.shade100,
+                color: Colors.blue,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _addWater(250),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('+250 ml'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
-                );
-              },
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _addWater(500),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('+500 ml'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1062,9 +1455,14 @@ class _RecommendationDetails extends StatelessWidget {
 
 class _CurrentMealItemCard extends StatelessWidget {
   final MealItemWithFood item;
+  final VoidCallback onEdit;
   final VoidCallback onRemove;
 
-  const _CurrentMealItemCard({required this.item, required this.onRemove});
+  const _CurrentMealItemCard({
+    required this.item,
+    required this.onEdit,
+    required this.onRemove,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1105,10 +1503,24 @@ class _CurrentMealItemCard extends StatelessWidget {
                 ],
               ),
             ),
-            IconButton(
-              onPressed: onRemove,
-              tooltip: 'Remove food',
-              icon: const Icon(Icons.delete_outline),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  onPressed: onEdit,
+                  tooltip: 'Edit portion',
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                ),
+                IconButton(
+                  onPressed: onRemove,
+                  tooltip: 'Remove food',
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.red,
+                    size: 20,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

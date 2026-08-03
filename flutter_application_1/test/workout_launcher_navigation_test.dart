@@ -4,6 +4,8 @@ import 'package:flutter_application_1/presentation/screen/workout_launcher_scree
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
 
+import 'package:flutter_application_1/presentation/AppBars/RecordWorkoutAppBar.dart';
+
 void main() {
   testWidgets('Workout launcher shows a home button for returning to the homepage', (
     WidgetTester tester,
@@ -11,7 +13,12 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
 
     await tester.pumpWidget(
-      MaterialApp(home: WorkoutLauncherScreen(db: db)),
+      MaterialApp(
+        home: Scaffold(
+          appBar: const RecordWorkoutAppBar(),
+          body: WorkoutLauncherScreen(db: db),
+        ),
+      ),
     );
     await tester.pumpAndSettle();
 

@@ -173,11 +173,15 @@ class Profilepage extends State<ProfilePage> {
             ),
           );
 
+      await _loadProfileData();
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile saved successfully')),
       );
-      Navigator.of(context).pop(true);
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(true);
+      }
     } catch (e) {
       debugPrint('Error saving profile: $e');
       if (mounted) {
@@ -331,6 +335,8 @@ class Profilepage extends State<ProfilePage> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    _buildLiveTargetCard(),
+                    const SizedBox(height: 12),
                     Card(
                       elevation: 0.5,
                       child: Padding(
@@ -377,31 +383,39 @@ class Profilepage extends State<ProfilePage> {
                                 setState(() => _activityLevel = value);
                               },
                             ),
-                            const SizedBox(height: 12),
-                            DropdownButtonFormField<String>(
-                              value: _target,
-                              decoration: const InputDecoration(
-                                labelText: 'Target',
-                                border: OutlineInputBorder(),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Primary Goal Target',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: SegmentedButton<String>(
+                                segments: const [
+                                  ButtonSegment(
+                                    value: 'Lose Fat',
+                                    label: Text('Lose Fat'),
+                                    icon: Icon(Icons.trending_down),
+                                  ),
+                                  ButtonSegment(
+                                    value: 'Maintenance',
+                                    label: Text('Maintain'),
+                                    icon: Icon(Icons.remove),
+                                  ),
+                                  ButtonSegment(
+                                    value: 'Gain Muscle',
+                                    label: Text('Gain Muscle'),
+                                    icon: Icon(Icons.trending_up),
+                                  ),
+                                ],
+                                selected: {_target},
+                                onSelectionChanged: (newSelection) {
+                                  setState(() => _target = newSelection.first);
+                                },
                               ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'Lose Fat',
-                                  child: Text('Lose Fat'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'Maintenance',
-                                  child: Text('Maintenance'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'Gain Muscle',
-                                  child: Text('Gain Muscle'),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                if (value == null) return;
-                                setState(() => _target = value);
-                              },
                             ),
                           ],
                         ),
@@ -484,6 +498,92 @@ class Profilepage extends State<ProfilePage> {
       title: Text(label),
       value: value,
       onChanged: onChanged,
+    );
+  }
+
+  Widget _buildLiveTargetCard() {
+    final weight = double.tryParse(_weightController.text) ?? 70.0;
+    final height = double.tryParse(_heightController.text) ?? 170.0;
+    final age = int.tryParse(_ageController.text) ?? 25;
+
+    final nutritionService = NutritionService();
+    final bmr = nutritionService.calculateBMR(
+      weight: weight,
+      height: height,
+      age: age,
+      gender: _gender,
+    );
+    final tdee = nutritionService.calculateTDEE(
+      bmr: bmr,
+      activityLevel: _activityLevel,
+    );
+    final macros = nutritionService.calculateMacroTargets(
+      tdee: tdee,
+      target: _target,
+      weight: weight,
+    );
+    final waterTarget = nutritionService.calculateDailyWaterTarget(
+      weight: weight,
+      activityLevel: _activityLevel,
+    );
+
+    final theme = Theme.of(context);
+
+    return Card(
+      elevation: 0.5,
+      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.25),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.bolt, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Live Nutrition Goal Targets',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Expanded(child: _buildStatItem('BMR', '${bmr.round()} kcal')),
+                Expanded(child: _buildStatItem('TDEE', '${tdee.round()} kcal')),
+                Expanded(child: _buildStatItem('Daily Target', '${(macros['calories'] ?? 2000).round()} kcal')),
+              ],
+            ),
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Expanded(child: _buildStatItem('Protein', '${(macros['protein'] ?? 150).round()}g')),
+                Expanded(child: _buildStatItem('Carbs', '${(macros['carbs'] ?? 200).round()}g')),
+                Expanded(child: _buildStatItem('Fat', '${(macros['fat'] ?? 60).round()}g')),
+                Expanded(child: _buildStatItem('Water Goal', '$waterTarget ml')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value) {
+    return Column(
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+      ],
     );
   }
 }

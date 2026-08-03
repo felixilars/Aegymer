@@ -5,10 +5,12 @@ import 'package:flutter_application_1/core/databases/app_database.dart';
 
 class RecentSessionPopup extends StatefulWidget {
   final WorkoutSession session;
+  final AppDatabase db;
 
   const RecentSessionPopup({
     super.key,
     required this.session,
+    required this.db,
   });
 
   @override
@@ -16,7 +18,6 @@ class RecentSessionPopup extends StatefulWidget {
 }
 
 class _RecentSessionPopupState extends State<RecentSessionPopup> {
-  final AppDatabase _db = AppDatabase();
   List<ExerciseWithSets> _exerciseGroups = [];
   bool _loading = true;
 
@@ -27,14 +28,14 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
   }
 
   Future<void> _loadWorkoutSets() async {
-    final sets = await (_db.select(_db.workoutSets).join([
+    final sets = await (widget.db.select(widget.db.workoutSets).join([
       drift.innerJoin(
-        _db.exercises,
-        _db.exercises.id.equalsExp(_db.workoutSets.exerciseId),
+        widget.db.exercises,
+        widget.db.exercises.id.equalsExp(widget.db.workoutSets.exerciseId),
       ),
     ])
       ..where(
-        _db.workoutSets.sessionId.equals(widget.session.id),
+        widget.db.workoutSets.sessionId.equals(widget.session.id),
       ))
     .get();
 
@@ -43,8 +44,8 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
     final map = <String, ExerciseWithSets>{};
 
     for (final row in sets) {
-      final set = row.readTable(_db.workoutSets);
-      final exercise = row.readTable(_db.exercises);
+      final set = row.readTable(widget.db.workoutSets);
+      final exercise = row.readTable(widget.db.exercises);
 
       map.putIfAbsent(
         exercise.id,
@@ -63,6 +64,19 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
     });
   }
 
+  String _formatDate(DateTime dt) {
+    final local = dt.toLocal();
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final monthName = months[local.month - 1];
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final ampm = local.hour >= 12 ? 'PM' : 'AM';
+    final minuteStr = local.minute.toString().padLeft(2, '0');
+    return '$monthName ${local.day}, ${local.year} • $hour:$minuteStr $ampm';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -72,7 +86,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
@@ -96,10 +110,12 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
             ),
             const SizedBox(height: 8),
             Text(
-              widget.session.date.toLocal().toString().split('.').first,
-              style: const TextStyle(
+              _formatDate(widget.session.date),
+              style: TextStyle(
                 fontSize: 14,
-                color: Color(0xff6B7280),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white70
+                    : const Color(0xff6B7280),
               ),
             ),
             const SizedBox(height: 24),

@@ -75,4 +75,33 @@ class NutritionService {
       'fat': fatGrams,
     };
   }
+
+  int calculateDailyWaterTarget({
+    required double weight,
+    required String activityLevel,
+  }) {
+    double activityBonus = 0.0;
+    switch (activityLevel.toLowerCase().trim()) {
+      case 'sedentary':
+        activityBonus = 0.0;
+        break;
+      case 'lightly active':
+        activityBonus = 150.0;
+        break;
+      case 'moderately active':
+        activityBonus = 300.0;
+        break;
+      case 'very active':
+        activityBonus = 450.0;
+        break;
+      case 'extra active':
+        activityBonus = 600.0;
+        break;
+    }
+    // Standard direct drinking water recommendation: 30ml per kg of body weight (EFSA/Mayo Clinic)
+    // + activity bonus for workout sweat loss.
+    final baseWaterMl = weight * 30.0;
+    final totalWaterMl = baseWaterMl + activityBonus;
+    return totalWaterMl.round().clamp(1800, 3500);
+  }
 }

@@ -2928,7 +2928,8 @@ class $FoodsTable extends Foods with TableInfo<$FoodsTable, Food> {
     aliasedName,
     false,
     type: DriftSqlType.double,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
   );
   static const VerificationMeta _sugarMeta = const VerificationMeta('sugar');
   @override
@@ -2937,7 +2938,8 @@ class $FoodsTable extends Foods with TableInfo<$FoodsTable, Food> {
     aliasedName,
     false,
     type: DriftSqlType.double,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
   );
   static const VerificationMeta _saturatedFatMeta = const VerificationMeta(
     'saturatedFat',
@@ -2948,7 +2950,8 @@ class $FoodsTable extends Foods with TableInfo<$FoodsTable, Food> {
     aliasedName,
     false,
     type: DriftSqlType.double,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
   );
   static const VerificationMeta _sodiumMeta = const VerificationMeta('sodium');
   @override
@@ -2957,7 +2960,8 @@ class $FoodsTable extends Foods with TableInfo<$FoodsTable, Food> {
     aliasedName,
     false,
     type: DriftSqlType.double,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
   );
   static const VerificationMeta _categoryMeta = const VerificationMeta(
     'category',
@@ -3062,16 +3066,12 @@ class $FoodsTable extends Foods with TableInfo<$FoodsTable, Food> {
         _fiberMeta,
         fiber.isAcceptableOrUnknown(data['fiber']!, _fiberMeta),
       );
-    } else if (isInserting) {
-      context.missing(_fiberMeta);
     }
     if (data.containsKey('sugar')) {
       context.handle(
         _sugarMeta,
         sugar.isAcceptableOrUnknown(data['sugar']!, _sugarMeta),
       );
-    } else if (isInserting) {
-      context.missing(_sugarMeta);
     }
     if (data.containsKey('saturated_fat')) {
       context.handle(
@@ -3081,16 +3081,12 @@ class $FoodsTable extends Foods with TableInfo<$FoodsTable, Food> {
           _saturatedFatMeta,
         ),
       );
-    } else if (isInserting) {
-      context.missing(_saturatedFatMeta);
     }
     if (data.containsKey('sodium')) {
       context.handle(
         _sodiumMeta,
         sodium.isAcceptableOrUnknown(data['sodium']!, _sodiumMeta),
       );
-    } else if (isInserting) {
-      context.missing(_sodiumMeta);
     }
     if (data.containsKey('category')) {
       context.handle(
@@ -3409,10 +3405,10 @@ class FoodsCompanion extends UpdateCompanion<Food> {
     required double protein,
     required double carbs,
     required double fat,
-    required double fiber,
-    required double sugar,
-    required double saturatedFat,
-    required double sodium,
+    this.fiber = const Value.absent(),
+    this.sugar = const Value.absent(),
+    this.saturatedFat = const Value.absent(),
+    this.sodium = const Value.absent(),
     this.category = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -3421,11 +3417,7 @@ class FoodsCompanion extends UpdateCompanion<Food> {
        calories = Value(calories),
        protein = Value(protein),
        carbs = Value(carbs),
-       fat = Value(fat),
-       fiber = Value(fiber),
-       sugar = Value(sugar),
-       saturatedFat = Value(saturatedFat),
-       sodium = Value(sodium);
+       fat = Value(fat);
   static Insertable<Food> custom({
     Expression<String>? id,
     Expression<String>? name,
@@ -5635,10 +5627,10 @@ typedef $$FoodsTableCreateCompanionBuilder =
       required double protein,
       required double carbs,
       required double fat,
-      required double fiber,
-      required double sugar,
-      required double saturatedFat,
-      required double sodium,
+      Value<double> fiber,
+      Value<double> sugar,
+      Value<double> saturatedFat,
+      Value<double> sodium,
       Value<String?> category,
       Value<bool> isCustom,
       Value<int> rowid,
@@ -5911,10 +5903,10 @@ class $$FoodsTableTableManager
                 required double protein,
                 required double carbs,
                 required double fat,
-                required double fiber,
-                required double sugar,
-                required double saturatedFat,
-                required double sodium,
+                Value<double> fiber = const Value.absent(),
+                Value<double> sugar = const Value.absent(),
+                Value<double> saturatedFat = const Value.absent(),
+                Value<double> sodium = const Value.absent(),
                 Value<String?> category = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<int> rowid = const Value.absent(),

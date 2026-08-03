@@ -82,4 +82,17 @@ class MealRepository {
           ..where((tbl) => tbl.id.equals(mealItemId)))
         .go();
   }
+
+  Future<void> updateMealItemAmount({
+    required String mealItemId,
+    required double newAmount,
+  }) async {
+    await (_db.update(_db.mealItems)
+          ..where((tbl) => tbl.id.equals(mealItemId)))
+        .write(
+      MealItemsCompanion(
+        amount: Value(newAmount),
+      ),
+    );
+  }
 }

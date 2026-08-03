@@ -134,37 +134,33 @@ class _MealPrepPageState extends State<MealPrepPage> {
     }
   }
 
-  bool _recommendationsCollapsed = false;
-
   Future<void> _addRecommendationToMeal(
     MealRecommendation recommendation,
   ) async {
+    final amount = await _pickAmountInGrams(
+      food: recommendation.food,
+      initialAmount: recommendation.amount.grams,
+    );
+    if (!mounted || amount == null) return;
+
     await _service.addFoodToMeal(
       recommendation.food,
       mealContext: _mealContext,
-      amount: recommendation.amount.grams,
+      amount: amount,
     );
     await _loadAllData(showBusy: true);
   }
 
   Future<void> _addSearchResultToMeal(Food food) async {
-    final double? selectedGrams = await showModalBottomSheet<double>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => _PortionQuantitySheet(food: food),
-    );
+    final amount = await _pickAmountInGrams(food: food, initialAmount: 100);
+    if (!mounted || amount == null) return;
 
-    if (selectedGrams != null && selectedGrams > 0) {
-      await _service.addFoodToMeal(
-        food,
-        mealContext: _mealContext,
-        amount: selectedGrams,
-      );
-      await _loadAllData(showBusy: true);
-    }
+    await _service.addFoodToMeal(
+      food,
+      mealContext: _mealContext,
+      amount: amount,
+    );
+    await _loadAllData(showBusy: true);
   }
 
   Future<void> _removeFromMeal(String mealItemId) async {
@@ -226,6 +222,154 @@ class _MealPrepPageState extends State<MealPrepPage> {
         });
       }
     });
+  }
+
+  Future<double?> _pickAmountInGrams({
+    required Food food,
+    required double initialAmount,
+  }) async {
+    final normalizedInitial = initialAmount <= 0 ? 100.0 : initialAmount;
+    var amountInput = _formatGramInput(normalizedInitial);
+    var currentAmount = normalizedInitial;
+    String? amountError;
+
+    NutritionMacros macrosFor(double grams) {
+      final ratio = grams / 100;
+      return NutritionMacros(
+        calories: food.calories * ratio,
+        protein: food.protein * ratio,
+        carbs: food.carbs * ratio,
+        fat: food.fat * ratio,
+      );
+    }
+
+    final selectedAmount = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final preview = macrosFor(currentAmount);
+
+            return AlertDialog(
+              title: const Text('Set Amount'),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        food.name,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        key: ValueKey<String>(food.id),
+                        initialValue: amountInput,
+                        autofocus: true,
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                        onFieldSubmitted: (_) {
+                          final parsed = _tryParseAmount(amountInput);
+                          if (parsed == null || parsed <= 0) {
+                            setDialogState(() {
+                              amountError =
+                                  'Please enter a value greater than 0';
+                            });
+                            return;
+                          }
+
+                          Navigator.of(dialogContext).pop(parsed);
+                        },
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Amount (g)',
+                          hintText: 'Enter grams',
+                          prefixIcon: const Icon(Icons.scale_outlined),
+                          errorText: amountError,
+                        ),
+                        onChanged: (rawValue) {
+                          amountInput = rawValue;
+                          final parsed = _tryParseAmount(rawValue);
+                          setDialogState(() {
+                            if (parsed == null || parsed <= 0) {
+                              amountError =
+                                  'Please enter a value greater than 0';
+                              return;
+                            }
+
+                            currentAmount = parsed;
+                            amountError = null;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Preview for ${_formatGramInput(currentAmount)} g',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _MacroProvidedGrid(
+                        calories: preview.calories,
+                        protein: preview.protein,
+                        carbs: preview.carbs,
+                        fat: preview.fat,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: amountError != null
+                      ? null
+                      : () {
+                          final parsed = _tryParseAmount(amountInput);
+                          if (parsed == null || parsed <= 0) {
+                            setDialogState(() {
+                              amountError =
+                                  'Please enter a value greater than 0';
+                            });
+                            return;
+                          }
+
+                          Navigator.of(dialogContext).pop(parsed);
+                        },
+                  child: const Text('Add to Meal'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    return selectedAmount;
+  }
+
+  double? _tryParseAmount(String value) {
+    final normalized = value.trim().replaceAll(',', '.');
+    if (normalized.isEmpty) return null;
+    return double.tryParse(normalized);
+  }
+
+  String _formatGramInput(double amount) {
+    final rounded = amount.roundToDouble();
+    if ((amount - rounded).abs() < 0.001) {
+      return rounded.toStringAsFixed(0);
+    }
+    return amount.toStringAsFixed(1);
   }
 
   @override
@@ -351,44 +495,42 @@ class _MealPrepPageState extends State<MealPrepPage> {
             ],
           ),
           const SizedBox(height: 12),
-          if (!_recommendationsCollapsed)
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 280),
-              transitionBuilder: (child, animation) =>
-                  FadeTransition(opacity: animation, child: child),
-              child: _recommendations.isEmpty
-                  ? const _EmptyCard(
-                      key: ValueKey('empty-recommendations'),
-                      title: 'No recommendations available.',
-                      message: 'Try searching for a food instead.',
-                    )
-                  : Column(
-                      key: ValueKey<int>(_recommendationVersion),
-                      children: _recommendations.map((recommendation) {
-                        final isExpanded = _expandedCards.contains(
-                          recommendation.food.id,
-                        );
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _RecommendationCard(
-                            recommendation: recommendation,
-                            expanded: isExpanded,
-                            onToggle: () {
-                              setState(() {
-                                if (isExpanded) {
-                                  _expandedCards.remove(recommendation.food.id);
-                                } else {
-                                  _expandedCards.add(recommendation.food.id);
-                                }
-                              });
-                            },
-                            onAdd: () =>
-                                _addRecommendationToMeal(recommendation),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-            ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
+            child: _recommendations.isEmpty
+                ? const _EmptyCard(
+                    key: ValueKey('empty-recommendations'),
+                    title: 'No recommendations available.',
+                    message: 'Try searching for a food instead.',
+                  )
+                : Column(
+                    key: ValueKey<int>(_recommendationVersion),
+                    children: _recommendations.map((recommendation) {
+                      final isExpanded = _expandedCards.contains(
+                        recommendation.food.id,
+                      );
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _RecommendationCard(
+                          recommendation: recommendation,
+                          expanded: isExpanded,
+                          onToggle: () {
+                            setState(() {
+                              if (isExpanded) {
+                                _expandedCards.remove(recommendation.food.id);
+                              } else {
+                                _expandedCards.add(recommendation.food.id);
+                              }
+                            });
+                          },
+                          onAdd: () => _addRecommendationToMeal(recommendation),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+          ),
           const SizedBox(height: 24),
           const _SectionHeader(
             title: 'Current Meal',
@@ -496,27 +638,13 @@ class _MealSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final consumed = (target.calories - remaining.calories).clamp(
-      0.0,
+    final consumed = (targetCalories - remainingCalories).clamp(
+      0,
       double.infinity,
     );
-    final progress = target.calories <= 0
+    final progress = targetCalories <= 0
         ? 0.0
-        : (consumed / target.calories).clamp(0.0, 1.0);
-
-    final pProgress = target.protein <= 0
-        ? 0.0
-        : ((target.protein - remaining.protein) / target.protein).clamp(
-            0.0,
-            1.0,
-          );
-    final cProgress = target.carbs <= 0
-        ? 0.0
-        : ((target.carbs - remaining.carbs) / target.carbs).clamp(0.0, 1.0);
-    final fProgress = target.fat <= 0
-        ? 0.0
-        : ((target.fat - remaining.fat) / target.fat).clamp(0.0, 1.0);
+        : (consumed / targetCalories).clamp(0.0, 1.0);
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -662,8 +790,10 @@ class _MacroLegendRow extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              label,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              mealContext.displayName,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
@@ -829,44 +959,12 @@ class _WaterTrackerCardState extends State<_WaterTrackerCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.water_drop,
-                        color: Colors.blue,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Daily Water Intake',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '$_intakeMl / $_goalMl ml (${(progress * 100).toInt()}%)',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.blue.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                _LabeledKcal(label: 'Target Calories', value: targetCalories),
+                _LabeledKcal(
+                  label: 'Remaining Calories',
+                  value: remainingCalories,
                 ),
-                TextButton(
-                  onPressed: _resetWater,
-                  child: const Text('Reset', style: TextStyle(fontSize: 12)),
-                ),
+                _LabeledPercent(label: 'Progress', value: progress),
               ],
             ),
             const SizedBox(height: 12),
@@ -1502,6 +1600,63 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+class _LabeledKcal extends StatelessWidget {
+  final String label;
+  final double value;
+
+  const _LabeledKcal({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.textTheme.labelLarge),
+        const SizedBox(height: 3),
+        _AnimatedNumberText(
+          value: value,
+          suffix: 'kcal',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LabeledPercent extends StatelessWidget {
+  final String label;
+  final double value;
+
+  const _LabeledPercent({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.textTheme.labelLarge),
+        const SizedBox(height: 3),
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: value),
+          duration: const Duration(milliseconds: 450),
+          builder: (context, current, child) {
+            return Text(
+              '${(current * 100).toStringAsFixed(0)}%',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
 class _AnimatedNumberText extends StatelessWidget {
   final double value;
   final String suffix;
@@ -1656,119 +1811,6 @@ class _SkeletonCard extends StatelessWidget {
           alpha: 0.35,
         ),
         borderRadius: BorderRadius.circular(16),
-      ),
-    );
-  }
-}
-
-class _PortionQuantitySheet extends StatefulWidget {
-  final Food food;
-  final double initialGrams;
-
-  const _PortionQuantitySheet({required this.food, this.initialGrams = 100.0});
-
-  @override
-  State<_PortionQuantitySheet> createState() => _PortionQuantitySheetState();
-}
-
-class _PortionQuantitySheetState extends State<_PortionQuantitySheet> {
-  late final TextEditingController _controller;
-  late double _grams;
-
-  @override
-  void initState() {
-    super.initState();
-    _grams = widget.initialGrams;
-    _controller = TextEditingController(text: _grams.toStringAsFixed(0));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _setGrams(double value) {
-    setState(() {
-      _grams = value;
-      _controller.text = value.toStringAsFixed(0);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  'Select Portion: ${widget.food.name}',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Select or enter amount in grams (g)',
-            style: TextStyle(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            children: [50.0, 100.0, 150.0, 200.0, 250.0].map((g) {
-              final isSelected = _grams == g;
-              return ChoiceChip(
-                label: Text('${g.toInt()}g'),
-                selected: isSelected,
-                onSelected: (_) => _setGrams(g),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Portion Size (g)',
-              border: OutlineInputBorder(),
-              suffixText: 'grams',
-            ),
-            onChanged: (val) {
-              final parsed = double.tryParse(val);
-              if (parsed != null && parsed > 0) {
-                _grams = parsed;
-              }
-            },
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.pop(context, _grams),
-              child: Text('Add ${_grams.toStringAsFixed(0)}g to Meal'),
-            ),
-          ),
-        ],
       ),
     );
   }

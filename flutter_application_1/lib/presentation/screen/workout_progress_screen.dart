@@ -78,9 +78,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
           _PrRecord(
             title: maxE1rmExName,
             value: '${maxE1rm.round()} kg 1RM',
-            dateStr: 'Best Lift',
-            icon: Icons.fitness_center,
-            color: Colors.amber.shade700,
+            badgeLabel: 'Best Lift',
           ),
         );
       }
@@ -88,16 +86,12 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
         _PrRecord(
           title: 'Total Workouts',
           value: '${allSessions.length} Sessions',
-          dateStr: 'All Time',
-          icon: Icons.workspace_premium,
-          color: const Color(0xff2563EB),
+          badgeLabel: 'All Time',
         ),
         _PrRecord(
           title: 'Exercises Trained',
           value: '${list.length} Movements',
-          dateStr: 'Logged',
-          icon: Icons.bolt,
-          color: const Color(0xffFF6B35),
+          badgeLabel: 'Logged',
         ),
       ]);
 
@@ -792,16 +786,12 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
 class _PrRecord {
   final String title;
   final String value;
-  final String dateStr;
-  final IconData icon;
-  final Color color;
+  final String badgeLabel;
 
   const _PrRecord({
     required this.title,
     required this.value,
-    required this.dateStr,
-    required this.icon,
-    required this.color,
+    required this.badgeLabel,
   });
 }
 
@@ -820,70 +810,60 @@ class _PRTrophyShelf extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(Icons.emoji_events, color: Colors.amber, size: 22),
-            const SizedBox(width: 8),
-            Text(
-              'Personal Records & Milestones 🏆',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        Text(
+          'Personal Records & Milestones',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
+          ),
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 94,
+          height: 88,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: records.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (context, idx) {
               final pr = records[idx];
               return Container(
-                width: 150,
+                width: 152,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? pr.color.withValues(alpha: 0.12)
-                      : pr.color.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16),
+                      ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3)
+                      : theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: pr.color.withValues(alpha: 0.3),
+                    color: isDark
+                        ? theme.colorScheme.outline.withValues(alpha: 0.2)
+                        : theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
                   ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Icon(pr.icon, color: pr.color, size: 18),
-                        Text(
-                          pr.dateStr,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isDark ? Colors.white54 : Colors.black45,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      pr.badgeLabel.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
                     Text(
                       pr.value,
-                      style: TextStyle(
-                        fontSize: 16,
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: theme.textTheme.bodyLarge?.color,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       pr.title,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),

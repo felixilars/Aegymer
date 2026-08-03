@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
-
 
 // Color Palette
 const backgroundColor = Color(0xffF5F7FA);
@@ -10,7 +8,8 @@ const accentColor = Color(0xffFF6B35);
 const textColor = Color(0xff1F2937);
 const subtitleColor = Color(0xff6B7280);
 
-class RecordWorkoutAppBar extends StatelessWidget implements PreferredSizeWidget {
+class RecordWorkoutAppBar extends StatelessWidget
+    implements PreferredSizeWidget {
   final VoidCallback? onHomePressed;
 
   const RecordWorkoutAppBar({super.key, this.onHomePressed});

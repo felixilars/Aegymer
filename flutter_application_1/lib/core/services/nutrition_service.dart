@@ -80,25 +80,28 @@ class NutritionService {
     required double weight,
     required String activityLevel,
   }) {
-    double factor = 1.0;
+    double activityBonus = 0.0;
     switch (activityLevel.toLowerCase().trim()) {
       case 'sedentary':
-        factor = 1.0;
+        activityBonus = 0.0;
         break;
       case 'lightly active':
-        factor = 1.15;
+        activityBonus = 150.0;
         break;
       case 'moderately active':
-        factor = 1.3;
+        activityBonus = 300.0;
         break;
       case 'very active':
-        factor = 1.45;
+        activityBonus = 450.0;
         break;
       case 'extra active':
-        factor = 1.6;
+        activityBonus = 600.0;
         break;
     }
-    final waterMl = (weight * 35.0) * factor;
-    return waterMl.round().clamp(1500, 4500);
+    // Standard direct drinking water recommendation: 30ml per kg of body weight (EFSA/Mayo Clinic)
+    // + activity bonus for workout sweat loss.
+    final baseWaterMl = weight * 30.0;
+    final totalWaterMl = baseWaterMl + activityBonus;
+    return totalWaterMl.round().clamp(1800, 3500);
   }
 }

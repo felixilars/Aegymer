@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
 import 'package:flutter_application_1/core/enums/meal_context.dart';
 import 'package:flutter_application_1/core/repositories/FoodRepository.dart';
@@ -746,15 +747,24 @@ class _WaterTrackerCardState extends State<_WaterTrackerCard> {
   int _intakeMl = 0;
   int _goalMl = 2450; // Dynamic default based on standard 70kg * 35ml
 
+  String get _todayKey {
+    final now = DateTime.now();
+    return 'water_intake_${now.year}_${now.month}_${now.day}';
+  }
+
   @override
   void initState() {
     super.initState();
-    _loadUserWaterGoal();
+    _loadUserWaterData();
   }
 
-  Future<void> _loadUserWaterGoal() async {
+  Future<void> _loadUserWaterData() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedIntake = prefs.getInt(_todayKey) ?? 0;
+
       final profiles = await widget.db.select(widget.db.userProfiles).get();
+      int goal = 2450;
       if (profiles.isNotEmpty) {
         final profile = profiles.first;
         final activityStr = profile.activityLevel >= 1.725
@@ -764,29 +774,39 @@ class _WaterTrackerCardState extends State<_WaterTrackerCard> {
             : profile.activityLevel >= 1.375
             ? 'Lightly Active'
             : 'Sedentary';
-        final goal = NutritionService().calculateDailyWaterTarget(
+        goal = NutritionService().calculateDailyWaterTarget(
           weight: profile.weight,
           activityLevel: activityStr,
         );
-        if (mounted) {
-          setState(() {
-            _goalMl = goal;
-          });
-        }
+      }
+      if (mounted) {
+        setState(() {
+          _intakeMl = savedIntake;
+          _goalMl = goal;
+        });
       }
     } catch (_) {}
   }
 
-  void _addWater(int amount) {
+  Future<void> _addWater(int amount) async {
+    final newIntake = (_intakeMl + amount).clamp(0, 6000);
     setState(() {
-      _intakeMl = (_intakeMl + amount).clamp(0, 6000);
+      _intakeMl = newIntake;
     });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_todayKey, newIntake);
+    } catch (_) {}
   }
 
-  void _resetWater() {
+  Future<void> _resetWater() async {
     setState(() {
       _intakeMl = 0;
     });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_todayKey, 0);
+    } catch (_) {}
   }
 
   @override

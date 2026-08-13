@@ -44,7 +44,7 @@ flutter run
 
 ### 1. Home page
 
-<img src="../screenshots/homepage.gif" alt="Home page walkthrough" width="260" />
+<img src="screenshots/homepage.gif" alt="Home page walkthrough" width="260" />
 
 The Home page is your daily dashboard. It gives you a quick overview of your fitness routine and your consistency.
 
@@ -66,7 +66,7 @@ How to use it:
 
 ### 2. Meals page
 
-<img src="../screenshots/meal.gif" alt="Meals page walkthrough" width="260" />
+<img src="screenshots/meal.gif" alt="Meals page walkthrough" width="260" />
 
 The Meals page helps you plan food around your goals and current meal context.
 
@@ -90,7 +90,7 @@ How to use it:
 
 ### 3. Workout page
 
-<img src="../screenshots/workout_session.gif" alt="Workout page walkthrough" width="260" />
+<img src="screenshots/workout_session.gif" alt="Workout page walkthrough" width="260" />
 
 The Workout page is where you record and manage your actual training.
 
@@ -115,7 +115,7 @@ How to use it:
 
 ### 4. Progress page
 
-<img src="../screenshots/progress_chart.gif" alt="Progress page walkthrough" width="260" />
+<img src="screenshots/progress_chart.gif" alt="Progress page walkthrough" width="260" />
 
 The Progress page shows how your training is improving over time.
 

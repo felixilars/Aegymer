@@ -232,7 +232,9 @@ class _WelcomePageState extends State<WelcomePage> {
                 const SizedBox(height: 16),
 
                 DropdownButtonFormField<String>(
-                  value: _activityController.text,
+                  value: _activityController.text.isEmpty
+      ? null
+      : _activityController.text,
                   decoration: const InputDecoration(
                     labelText: 'Activity Level',
                     border: OutlineInputBorder(),

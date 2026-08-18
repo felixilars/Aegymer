@@ -102,13 +102,14 @@ class _MealPrepPageState extends State<MealPrepPage> {
       final remainingState = await _service.calculateRemainingMealMacros(
         mealContext: mealContext,
       );
-      final recommendations = await _service.recommendFoods(
-        mealContext: mealContext,
-        limit: 8,
-      );
       final loggedFoods = await _service.getLoggedFoodsForCurrentMeal(
         mealContext: mealContext,
       );
+      final loggedFoodIds = loggedFoods.map((item) => item.food.id).toSet();
+      final recommendations = (await _service.recommendFoods(
+        mealContext: mealContext,
+        limit: 8,
+      )).where((rec) => !loggedFoodIds.contains(rec.food.id)).toList();
 
       if (!mounted) return;
 
@@ -117,6 +118,9 @@ class _MealPrepPageState extends State<MealPrepPage> {
         _remainingState = remainingState;
         _recommendations = recommendations;
         _loggedFoods = loggedFoods;
+        _searchResults = _searchResults
+            .where((food) => !loggedFoodIds.contains(food.id))
+            .toList();
         _recommendationVersion++;
         _mealVersion++;
         _isInitialLoading = false;
@@ -139,6 +143,8 @@ class _MealPrepPageState extends State<MealPrepPage> {
   Future<void> _addRecommendationToMeal(
     MealRecommendation recommendation,
   ) async {
+    if (_isFoodAlreadyLogged(recommendation.food.id)) return;
+
     await _service.addFoodToMeal(
       recommendation.food,
       mealContext: _mealContext,
@@ -148,6 +154,8 @@ class _MealPrepPageState extends State<MealPrepPage> {
   }
 
   Future<void> _addSearchResultToMeal(Food food) async {
+    if (_isFoodAlreadyLogged(food.id)) return;
+
     final double? selectedGrams = await showModalBottomSheet<double>(
       context: context,
       isScrollControlled: true,
@@ -158,6 +166,8 @@ class _MealPrepPageState extends State<MealPrepPage> {
     );
 
     if (selectedGrams != null && selectedGrams > 0) {
+      if (_isFoodAlreadyLogged(food.id)) return;
+
       await _service.addFoodToMeal(
         food,
         mealContext: _mealContext,
@@ -214,8 +224,12 @@ class _MealPrepPageState extends State<MealPrepPage> {
           return;
         }
 
+        final loggedFoodIds = _loggedFoods.map((item) => item.food.id).toSet();
+
         setState(() {
-          _searchResults = results;
+          _searchResults = results
+              .where((food) => !loggedFoodIds.contains(food.id))
+              .toList();
           _isSearching = false;
         });
       } catch (e, stackTrace) {
@@ -227,6 +241,18 @@ class _MealPrepPageState extends State<MealPrepPage> {
         });
       }
     });
+  }
+
+  bool _isFoodAlreadyLogged(String foodId) {
+    final alreadyLogged = _loggedFoods.any((item) => item.food.id == foodId);
+    if (!alreadyLogged || !mounted) return alreadyLogged;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('This food is already logged for this meal.'),
+      ),
+    );
+    return true;
   }
 
   @override

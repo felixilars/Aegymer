@@ -14,7 +14,7 @@ class ExerciseSessionHistory {
   });
 
   double get workingWeight => weights.isNotEmpty ? weights.first : 0.0;
-  int get totalReps => reps.reduce((a, b) => a + b);
+  int get totalReps => reps.isNotEmpty ? reps.reduce((a, b) => a + b) : 0;
 }
 
 class AutoregulationService {
@@ -60,8 +60,8 @@ class AutoregulationService {
       };
     }
 
-    // If we have less than 10 sessions, use APRE rule-based protocol (Cold Start)
-    if (history.length < 10) {
+    // Lowered cold start: With 5+ sessions, we have sufficient history for ACWR and KNN
+    if (history.length < 5) {
       return _suggestAPRE(lastSession, targetReps);
     }
 
@@ -78,22 +78,26 @@ class AutoregulationService {
     return _suggestAPRE(lastSession, targetReps);
   }
 
-  // 1. Rule-Based APRE Protocol (AMRAP on last set)
+  // APRE protocol
   Map<String, dynamic> _suggestAPRE(ExerciseSessionHistory lastSession, int targetReps) {
     if (lastSession.reps.isEmpty || lastSession.weights.isEmpty) {
       return {'weight': 0.0, 'method': 'APRE'};
     }
 
-    int actualLastSetReps = lastSession.reps.last;
-    int deltaR = actualLastSetReps - targetReps;
+    // Effective reps calculated from set 1 and session average reps.
+    double sumReps = lastSession.reps.reduce((a, b) => a + b).toDouble();
+    double avgReps = sumReps / lastSession.reps.length;
+    double effectiveReps = (lastSession.reps.first + avgReps) / 2.0;
+
+    double deltaR = effectiveReps - targetReps;
     double currentWeight = lastSession.workingWeight;
     double nextWeight;
 
-    if (deltaR >= 3) {
+    if (deltaR >= 2.0) {
       nextWeight = currentWeight + (2 * deltaW);
-    } else if (deltaR >= 1) {
+    } else if (deltaR >= 0.5) {
       nextWeight = currentWeight + deltaW;
-    } else if (deltaR >= -1) {
+    } else if (deltaR >= -1.5) {
       nextWeight = currentWeight;
     } else {
       nextWeight = currentWeight - deltaW;
@@ -107,15 +111,14 @@ class AutoregulationService {
     };
   }
 
-  // 2. K-Nearest Neighbors Local ML Suggestion
+  // 2. K-Nearest Neighbors Local ML Suggestion with Delta Progression
   Map<String, dynamic>? _suggestKNN(
     List<ExerciseSessionHistory> history,
     int daysRestNext,
   ) {
-    // We need at least 10 sessions to predict.
-    if (history.length < 10) return null;
+    if (history.length < 5) return null;
 
-    // training features: X, target: y
+    // Training features: X, Delta weight progression target: y
     List<List<double>> X = [];
     List<double> y = [];
 
@@ -136,7 +139,7 @@ class AutoregulationService {
       double totalReps = currentSession.totalReps.toDouble();
       double dropOff = WorkoutCalculator.calculateDropOffRate(currentSession.reps);
       
-      // For ACWR, we need past 4 volumes before session i
+      // For ACWR, we need past volumes before session i
       List<double> past4Volumes = [];
       if (i > 0) {
         int start = max(0, i - 4);
@@ -146,8 +149,13 @@ class AutoregulationService {
       double restDays = nextSession.date.difference(currentSession.date).inDays.toDouble();
 
       X.add([w, totalReps, dropOff, acwr, restDays]);
-      y.add(nextSession.workingWeight);
+
+      // Target is the weight change between consecutive sessions.
+      double deltaProgression = nextSession.workingWeight - currentSession.workingWeight;
+      y.add(deltaProgression);
     }
+
+    if (X.isEmpty || y.isEmpty) return null;
 
     // Predict for the upcoming session using features of the last session
     final lastSession = history.last;
@@ -168,10 +176,21 @@ class AutoregulationService {
       daysRestNext.toDouble(),
     ];
 
-    double predictedWeight = _knnService.predict(X, y, nextFeatures);
+    // Feature weights: give higher importance to readiness, fatigue, and recovery
+    final featureWeights = [0.15, 0.35, 0.25, 0.15, 0.10];
+
+    double predictedDelta = _knnService.predict(
+      X,
+      y,
+      nextFeatures,
+      weights: featureWeights,
+    );
     
+    // Suggested weight = last working weight + predicted progressive overload delta
+    double rawSuggestedWeight = lastSession.workingWeight + predictedDelta;
+
     // Round to nearest deltaW
-    double roundedWeight = (predictedWeight / deltaW).round() * deltaW;
+    double roundedWeight = (rawSuggestedWeight / deltaW).round() * deltaW;
     roundedWeight = max(0.0, roundedWeight);
 
     return {

@@ -16,22 +16,47 @@ class ProportionalAmountCalculator implements AmountCalculator {
     required Food food,
     required NutritionMacros remainingMacros,
   }) {
-    final ratios = <double>[];
+    // Determine the primary nutritional purpose of the food
+    final double proteinCal = food.protein * 4;
+    final double carbCal = food.carbs * 4;
+    final double fatCal = food.fat * 9;
+    final double totalMacroCal = max(1.0, proteinCal + carbCal + fatCal);
+
+    final double pShare = proteinCal / totalMacroCal;
+    final double cShare = carbCal / totalMacroCal;
+    final double fShare = fatCal / totalMacroCal;
 
     final proteinRatio = _safeRatio(remainingMacros.protein, food.protein);
-    if (proteinRatio != null) ratios.add(proteinRatio);
-
     final carbRatio = _safeRatio(remainingMacros.carbs, food.carbs);
-    if (carbRatio != null) ratios.add(carbRatio);
-
     final fatRatio = _safeRatio(remainingMacros.fat, food.fat);
-    if (fatRatio != null) ratios.add(fatRatio);
-
     final calorieRatio = _safeRatio(remainingMacros.calories, food.calories);
-    if (calorieRatio != null) ratios.add(calorieRatio);
 
-    final ratio = ratios.isEmpty ? 1.0 : ratios.reduce(min);
-    final grams = (ratio * 100).clamp(minGrams, maxGrams).toDouble();
+    double chosenRatio;
+
+    // High protein foods scale to protein target
+    if ((pShare >= 0.35 || food.protein >= 15.0) && proteinRatio != null) {
+      chosenRatio = proteinRatio;
+    }
+    // High carbohydrate foods scale to carb target
+    else if ((cShare >= 0.45 || food.carbs >= 20.0) && carbRatio != null) {
+      chosenRatio = carbRatio;
+    }
+    // High fat foods scale to fat target
+    else if (fShare >= 0.50 && fatRatio != null) {
+      chosenRatio = fatRatio;
+    }
+    // Balanced or mixed foods scale to calorie target
+    else if (calorieRatio != null) {
+      chosenRatio = calorieRatio;
+    } else {
+      final validRatios = [proteinRatio, carbRatio, fatRatio, calorieRatio].whereType<double>().toList();
+      chosenRatio = validRatios.isNotEmpty
+          ? validRatios.reduce((a, b) => a + b) / validRatios.length
+          : 1.0;
+    }
+
+    // Clamp grams to realistic meal serving bounds
+    final grams = (chosenRatio * 100).clamp(minGrams, maxGrams).toDouble();
     final quantityRatio = grams / 100.0;
 
     return AmountRecommendation(

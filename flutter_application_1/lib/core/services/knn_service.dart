@@ -8,7 +8,13 @@ class KNearestNeighborsService {
   /// [X] is a list of training feature vectors.
   /// [y] is a list of training target values.
   /// [targetX] is the feature vector of the target to predict.
-  double predict(List<List<double>> X, List<double> y, List<double> targetX) {
+  /// [weights] is an optional vector of feature importance weights for weighted Euclidean distance.
+  double predict(
+    List<List<double>> X,
+    List<double> y,
+    List<double> targetX, {
+    List<double>? weights,
+  }) {
     if (X.isEmpty || y.isEmpty || X.length != y.length || targetX.isEmpty) {
       return 0.0;
     }
@@ -58,13 +64,14 @@ class KNearestNeighborsService {
       }
     }
 
-    // Euclidean distances
+    // Weighted Euclidean distances
     List<MapEntry<int, double>> distances = [];
     for (int i = 0; i < numSamples; i++) {
       double sumSquares = 0.0;
       for (int j = 0; j < numFeatures; j++) {
         double diff = normTargetX[j] - normX[i][j];
-        sumSquares += diff * diff;
+        double featWeight = (weights != null && j < weights.length) ? weights[j] : 1.0;
+        sumSquares += featWeight * diff * diff;
       }
       double dist = sqrt(sumSquares);
       distances.add(MapEntry(i, dist));
@@ -73,7 +80,12 @@ class KNearestNeighborsService {
     // Sort by distance ascending
     distances.sort((a, b) => a.value.compareTo(b.value));
 
-    // Top K neighbors
+    // Check if closest neighbor is an exact match
+    if (distances.first.value < 1e-7) {
+      return y[distances.first.key];
+    }
+
+    // Top K neighbors with Inverse Distance Weighting
     int actualK = min(k, numSamples);
     double sumWeights = 0.0;
     double weightedSumY = 0.0;
@@ -82,11 +94,11 @@ class KNearestNeighborsService {
       int idx = distances[i].key;
       double dist = distances[i].value;
       double weight = 1.0 / (dist + 1e-5);
-      
+
       sumWeights += weight;
       weightedSumY += weight * y[idx];
     }
 
-    return weightedSumY / sumWeights;
+    return sumWeights > 0 ? (weightedSumY / sumWeights) : 0.0;
   }
 }

@@ -3,10 +3,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/core/utils/workout_cal.dart';
-import 'package:flutter_application_1/core/services/sync_service.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/core/utils/workout_cal.dart';
+import 'package:aegymer/core/services/sync_service.dart';
+import 'package:aegymer/core/utils/url_launcher_helper.dart';
 
 class RoutineEditorScreen extends StatefulWidget {
   final AppDatabase db;
@@ -397,17 +397,7 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
   }
 
   Future<void> _launchGoogleSearch(String exerciseName) async {
-    final query = Uri.encodeComponent('$exerciseName exercise how to form');
-    final url = Uri.parse('https://www.google.com/search?q=$query');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cannot open search link')),
-        );
-      }
-    }
+    await UrlLauncherHelper.openExerciseFormGuide(context, exerciseName);
   }
 
   Future<void> _saveRoutine() async {

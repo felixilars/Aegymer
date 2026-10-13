@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:drift/drift.dart' as drift;
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/core/services/streak_service.dart';
-import 'package:flutter_application_1/presentation/recent_session_popup.dart';
-import 'package:flutter_application_1/presentation/screen/workout_launcher_screen.dart';
-import 'package:flutter_application_1/presentation/widgets/streak_detail_sheet.dart';
-import 'package:flutter_application_1/presentation/screen/workout_progress_screen.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/core/services/streak_service.dart';
+import 'package:aegymer/presentation/recent_session_popup.dart';
+import 'package:aegymer/presentation/screen/workout_launcher_screen.dart';
+import 'package:aegymer/presentation/widgets/streak_detail_sheet.dart';
+import 'package:aegymer/presentation/screen/workout_progress_screen.dart';
 
 // Color Palette
 const backgroundColor = Color(0xffF5F7FA);
@@ -42,6 +42,13 @@ class _HomepageState extends State<Homepage> {
   void initState() {
     super.initState();
     _loadAllData();
+    StreakService.workoutUpdateNotifier.addListener(_onWorkoutUpdated);
+  }
+
+  void _onWorkoutUpdated() {
+    if (mounted) {
+      _loadAllData();
+    }
   }
 
   Future<void> _loadAllData() async {
@@ -174,6 +181,7 @@ class _HomepageState extends State<Homepage> {
 
   @override
   void dispose() {
+    StreakService.workoutUpdateNotifier.removeListener(_onWorkoutUpdated);
     _controller.dispose();
     super.dispose();
   }
@@ -247,15 +255,7 @@ class _HomepageState extends State<Homepage> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () {
-                          // Navigate to workout launcher
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => WorkoutLauncherScreen(db: widget.db),
-                            ),
-                          ).then((_) => _loadAllData());
-                        },
+                        onTap: widget.onRecordWorkout,
                         child: const Text(
                           'Start Workout',
                           style: TextStyle(
@@ -639,14 +639,7 @@ class _HomepageState extends State<Homepage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => WorkoutLauncherScreen(db: widget.db),
-                    ),
-                  ).then((_) => _loadAllData());
-                },
+                onPressed: widget.onRecordWorkout,
                 icon: const Icon(Icons.play_arrow, size: 20),
                 label: const Text('Start Workout'),
                 style: ElevatedButton.styleFrom(
@@ -752,8 +745,8 @@ class _HomepageState extends State<Homepage> {
                   ),
                   _SummaryItem(
                     icon: Icons.local_fire_department,
-                    label: 'Calories',
-                    value: summary.totalCalories,
+                    label: 'Burned',
+                    value: '${summary.totalCalories} kcal',
                     txtCol: txtCol,
                     subTxtCol: subTxtCol,
                   ),
@@ -934,12 +927,15 @@ class _SummaryItem extends StatelessWidget {
       children: [
         Icon(icon, color: primaryColor, size: 28),
         const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: txtCol,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: txtCol,
+            ),
           ),
         ),
         const SizedBox(height: 4),

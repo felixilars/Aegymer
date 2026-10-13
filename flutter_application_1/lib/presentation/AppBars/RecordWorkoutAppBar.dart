@@ -17,24 +17,12 @@ class RecordWorkoutAppBar extends StatelessWidget
   @override
   Widget build(BuildContext context) {
     return AppBar(
+      automaticallyImplyLeading: false,
       title: const Text(
         'Aegymer Workout',
         style: TextStyle(fontWeight: FontWeight.bold),
       ),
-      centerTitle: false,
-      actions: [
-        IconButton(
-          tooltip: 'Back to Home',
-          icon: const Icon(Icons.home),
-          onPressed: () {
-            if (onHomePressed != null) {
-              onHomePressed!();
-            } else if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            }
-          },
-        ),
-      ],
+      centerTitle: true,
     );
   }
 

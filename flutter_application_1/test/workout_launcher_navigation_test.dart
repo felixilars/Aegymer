@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/presentation/screen/workout_launcher_screen.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/presentation/screen/workout_launcher_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
 
-import 'package:flutter_application_1/presentation/AppBars/RecordWorkoutAppBar.dart';
+import 'package:aegymer/presentation/AppBars/RecordWorkoutAppBar.dart';
 
 void main() {
-  testWidgets('Workout launcher shows a home button for returning to the homepage', (
+  testWidgets('Workout launcher has centered title and no home button', (
     WidgetTester tester,
   ) async {
     final db = AppDatabase(NativeDatabase.memory());
@@ -23,6 +23,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Aegymer Workout'), findsOneWidget);
-    expect(find.byIcon(Icons.home), findsOneWidget);
+    expect(find.byIcon(Icons.home), findsNothing);
   });
 }

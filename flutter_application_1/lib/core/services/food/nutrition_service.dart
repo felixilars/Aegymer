@@ -1,5 +1,5 @@
 
-import 'package:flutter_application_1/models/nutrition_macros.dart';
+import 'package:aegymer/models/nutrition_macros.dart';
 
 
 class NutritionService {
@@ -8,36 +8,41 @@ class NutritionService {
     required double weight,
     required double height,
     required int age,
-  })
-  {
-    if (gender == 'male') {
-      return 10 * weight + 6.25 * height - 5 * age + 5;
+  }) {
+    final g = gender.toLowerCase().trim();
+    if (g == 'male') {
+      return (10.0 * weight) + (6.25 * height) - (5.0 * age) + 5.0;
     } else {
-      return 10 * weight + 6.25 * height - 5 * age - 161;
+      return (10.0 * weight) + (6.25 * height) - (5.0 * age) - 161.0;
     }
   }
 
   double calculateTDEE({
     required double bmr,
     required double activityMultiplier,
-  })
-  {
+  }) {
     return bmr * activityMultiplier;
   }
-  
 
   double calculateTargetCalories({
     required double tdee,
     required String goal,
   }) {
     final g = goal.toLowerCase().trim();
+    double target;
     if (g.contains('lose')) {
-      return tdee - 500; // 500 calorie deficit for weight loss
+      target = tdee - 500.0; // 500 calorie deficit for weight loss (~0.5kg/week)
     } else if (g.contains('gain')) {
-      return tdee + 300; // 300 calorie surplus for weight gain
+      target = tdee + 300.0; // 300 calorie surplus for lean muscle gain
     } else {
-      return tdee; // maintain weight
+      target = tdee; // maintain weight
     }
+
+    // Safety minimum floor (ACSM / Mayo Clinic guideline)
+    if (target < 1200.0) {
+      target = 1200.0;
+    }
+    return target;
   }
 
   NutritionMacros calculateMacros({

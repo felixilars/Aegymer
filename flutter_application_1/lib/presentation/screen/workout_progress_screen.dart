@@ -2,8 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/core/utils/workout_cal.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/core/utils/workout_cal.dart';
 
 class WorkoutProgressScreen extends StatefulWidget {
   final AppDatabase db;
@@ -161,24 +161,51 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
         grouped[dateKey]!.add(set);
       }
 
+      final trackingType = WorkoutCalculator.normalizeTrackingType(
+        _selectedExercise!.trackingType,
+        name: _selectedExercise!.name,
+        targetMuscle: _selectedExercise!.targetMuscle,
+        equipment: _selectedExercise!.equipment,
+      );
+      final bool isCardio = trackingType == 'cardio_time';
+
       final sortedDates = grouped.keys.toList()..sort();
       for (final date in sortedDates) {
         final sets = grouped[date]!;
-        final weights = sets.map((s) => s.weight).toList();
-        final reps = sets.map((s) => s.reps).toList();
-        final double volume = WorkoutCalculator.calculateVolume(weights, reps);
-
-        double maxE1RM = 0.0;
-        for (var set in sets) {
-          double currentE1RM =
-              set.calculated1rm ??
-              WorkoutCalculator.calculateE1RM(set.weight, set.reps);
-          if (currentE1RM > maxE1RM) {
-            maxE1RM = currentE1RM;
+        if (isCardio) {
+          double totalDist = 0.0;
+          double totalCal = 0.0;
+          for (var set in sets) {
+            final dist = set.distance ?? 0.0;
+            totalDist += dist;
+            totalCal += WorkoutCalculator.calculateSetCalories(
+              exerciseName: _selectedExercise!.name,
+              targetMuscle: _selectedExercise!.targetMuscle,
+              equipment: _selectedExercise!.equipment,
+              trackingType: 'cardio_time',
+              bodyweightKg: 70.0,
+              distanceKm: dist,
+              durationSeconds: set.durationSeconds ?? 0,
+            );
           }
-        }
+          tempChartData.add({'date': date, 'e1rm': totalDist, 'volume': totalCal});
+        } else {
+          final weights = sets.map((s) => s.weight).toList();
+          final reps = sets.map((s) => s.reps).toList();
+          final double volume = WorkoutCalculator.calculateVolume(weights, reps);
 
-        tempChartData.add({'date': date, 'e1rm': maxE1RM, 'volume': volume});
+          double maxE1RM = 0.0;
+          for (var set in sets) {
+            double currentE1RM =
+                set.calculated1rm ??
+                WorkoutCalculator.calculateE1RM(set.weight, set.reps);
+            if (currentE1RM > maxE1RM) {
+              maxE1RM = currentE1RM;
+            }
+          }
+
+          tempChartData.add({'date': date, 'e1rm': maxE1RM, 'volume': volume});
+        }
       }
     } else if (_viewMode == 'Muscle') {
       if (_selectedMuscleGroup == null) return;
@@ -449,6 +476,16 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
       if (volume > maxVolume) maxVolume = volume;
     }
 
+    final bool isCardio = _viewMode == 'Exercise' &&
+        _selectedExercise != null &&
+        (WorkoutCalculator.normalizeTrackingType(
+              _selectedExercise!.trackingType,
+              name: _selectedExercise!.name,
+              targetMuscle: _selectedExercise!.targetMuscle,
+              equipment: _selectedExercise!.equipment,
+            ) ==
+            'cardio_time');
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -711,14 +748,14 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
                     Row(
                       children: [
                         Icon(
-                          Icons.fitness_center,
-                          color: Theme.of(context).colorScheme.primary,
+                          isCardio ? Icons.directions_run : Icons.fitness_center,
+                          color: isCardio ? Colors.blueAccent : Theme.of(context).colorScheme.primary,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            "Estimated 1 Rep Max (E1RM)",
+                            isCardio ? "Total Distance (km)" : "Estimated 1 Rep Max (E1RM)",
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -730,11 +767,11 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
                     ),
                     const SizedBox(height: 12),
                     _buildLineChart(
-                      title: "Estimated 1RM (kg)",
-                      yAxisLabel: "kg",
+                      title: isCardio ? "Distance (km)" : "Estimated 1RM (kg)",
+                      yAxisLabel: isCardio ? "km" : "kg",
                       spots: e1rmSpots,
-                      lineColor: Theme.of(context).colorScheme.primary,
-                      gradientColor: Theme.of(context).colorScheme.primary,
+                      lineColor: isCardio ? Colors.blueAccent : Theme.of(context).colorScheme.primary,
+                      gradientColor: isCardio ? Colors.blueAccent : Theme.of(context).colorScheme.primary,
                       minY: minE1rm,
                       maxY: maxE1rm,
                     ),
@@ -744,18 +781,20 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
                   Row(
                     children: [
                       Icon(
-                        Icons.stacked_bar_chart,
-                        color: Colors.amber.shade700,
+                        isCardio ? Icons.local_fire_department : Icons.stacked_bar_chart,
+                        color: isCardio ? Colors.orange : Colors.amber.shade700,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _viewMode == 'Exercise'
-                              ? "Total Volume Load"
-                              : _viewMode == 'Muscle'
-                              ? "Total Volume By Muscle Group ($_selectedMuscleGroup)"
-                              : "Total Daily Volume",
+                          isCardio
+                              ? "Calories Burned (kcal)"
+                              : (_viewMode == 'Exercise'
+                                  ? "Total Volume Load"
+                                  : _viewMode == 'Muscle'
+                                  ? "Total Volume By Muscle Group ($_selectedMuscleGroup)"
+                                  : "Total Daily Volume"),
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -767,11 +806,11 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
                   ),
                   const SizedBox(height: 12),
                   _buildLineChart(
-                    title: "Volume Load (kg)",
-                    yAxisLabel: "kg",
+                    title: isCardio ? "Calories (kcal)" : "Volume Load (kg)",
+                    yAxisLabel: isCardio ? "kcal" : "kg",
                     spots: volumeSpots,
-                    lineColor: Colors.amber.shade700,
-                    gradientColor: Colors.amber,
+                    lineColor: isCardio ? Colors.orange : Colors.amber.shade700,
+                    gradientColor: isCardio ? Colors.orangeAccent : Colors.amber,
                     minY: minVolume,
                     maxY: maxVolume,
                   ),

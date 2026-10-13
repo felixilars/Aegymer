@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/services/streak_service.dart';
+import 'package:aegymer/core/services/streak_service.dart';
 
 class StreakDetailSheet extends StatelessWidget {
   final StreakSummary summary;
@@ -57,47 +57,46 @@ class StreakDetailSheet extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Header Title
+            // Header Title (Fixed overflow using single Row with Expanded)
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: accentFlame.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.local_fire_department,
-                        color: accentFlame,
-                        size: 26,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Workout Streak Overview',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: textCol,
-                          ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: accentFlame.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.local_fire_department,
+                    color: accentFlame,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Weekly & Streak Details',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: textCol,
                         ),
-                        Text(
-                          'Tier: ${summary.streakTierName}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: primaryCol,
-                          ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Tier: ${summary.streakTierName}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: primaryCol,
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
                 IconButton(
                   icon: Icon(Icons.close, color: subCol),
@@ -106,7 +105,92 @@ class StreakDetailSheet extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+
+            // Weekly Summary Breakdown (Sessions, Time, Volume, Burned Calories)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Weekly Performance',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: textCol,
+                        ),
+                      ),
+                      Text(
+                        '7-day overall stats',
+                        style: TextStyle(fontSize: 12, color: subCol),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatTile(
+                          icon: Icons.repeat,
+                          label: 'Sessions',
+                          value: '${summary.totalSessions} workouts',
+                          textCol: textCol,
+                          subCol: subCol,
+                          color: primaryCol,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildStatTile(
+                          icon: Icons.schedule,
+                          label: 'Active Time',
+                          value: summary.totalTimeFormatted,
+                          textCol: textCol,
+                          subCol: subCol,
+                          color: Colors.blueAccent,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatTile(
+                          icon: Icons.fitness_center,
+                          label: 'Total Volume',
+                          value: summary.totalVolume,
+                          textCol: textCol,
+                          subCol: subCol,
+                          color: Colors.purpleAccent,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildStatTile(
+                          icon: Icons.local_fire_department,
+                          label: 'Burned',
+                          value: '${summary.totalCalories} kcal',
+                          textCol: textCol,
+                          subCol: subCol,
+                          color: accentFlame,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
 
             // Dual Cards: Daily Streak vs Weekly Streak
             Row(
@@ -141,12 +225,15 @@ class StreakDetailSheet extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          '${summary.currentDailyStreak} days',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: textCol,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '${summary.currentDailyStreak} days',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: textCol,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -190,12 +277,15 @@ class StreakDetailSheet extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          '${summary.currentWeeklyStreak} weeks',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: textCol,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '${summary.currentWeeklyStreak} weeks',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: textCol,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -330,9 +420,8 @@ class StreakDetailSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '• Daily Streak: Log at least 1 workout per day. You have a 24h grace window until midnight to maintain your streak!\n'
-                    '• Weekly Streak: Reach your target of ${summary.weeklyGoal} sessions/week to build consecutive active week streaks.\n'
-                    '• Scientific Insight: Consistent training triggers long-term muscular adaptations and builds sustainable habits.',
+                    '• Daily streak: log at least one workout per day before midnight.\n'
+                    '• Weekly streak: complete ${summary.weeklyGoal} sessions/week to build consecutive active weeks.',
                     style: TextStyle(fontSize: 13, height: 1.4, color: textCol),
                   ),
                 ],
@@ -383,6 +472,57 @@ class StreakDetailSheet extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color textCol,
+    required Color subCol,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: textCol,
+                    ),
+                  ),
+                ),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: subCol,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

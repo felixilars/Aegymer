@@ -2,10 +2,11 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' hide Column;
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/core/utils/workout_cal.dart';
-import 'package:flutter_application_1/core/services/sync_service.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/core/utils/workout_cal.dart';
+import 'package:aegymer/core/services/sync_service.dart';
+import 'package:aegymer/core/services/streak_service.dart';
+import 'package:aegymer/core/utils/url_launcher_helper.dart';
 
 class LocalWorkoutSet {
   final TextEditingController weightController;
@@ -112,9 +113,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     final selectedDay =
         DateTime(_workoutDate.year, _workoutDate.month, _workoutDate.day);
     final diff = today.difference(selectedDay).inDays;
-    if (diff == 0) return 'Today';
-    if (diff == 1) return 'Yesterday';
-    return '${_workoutDate.day}/${_workoutDate.month}/${_workoutDate.year}';
+    final day = _workoutDate.day.toString().padLeft(2, '0');
+    final month = _workoutDate.month.toString().padLeft(2, '0');
+    final dateStr = '$day/$month/${_workoutDate.year}';
+    if (diff == 0) return 'Today ($dateStr)';
+    if (diff == 1) return 'Yesterday ($dateStr)';
+    return dateStr;
   }
 
   Future<void> _pickWorkoutDate() async {
@@ -151,6 +155,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   final Map<String, double> _barbellWeight = {};
   final Map<String, TextEditingController> _barbellWeightControllers = {};
 
+  // Bodyweight state maps per exercise
+  final Map<String, double> _exerciseBodyweight = {};
+  final Map<String, TextEditingController> _bodyweightControllers = {};
+
   // Exercise-specific stopwatches
   final Map<String, int> _exerciseStopwatchSeconds = {};
   final Map<String, bool> _exerciseStopwatchRunning = {};
@@ -175,6 +183,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     _pageController.dispose();
     _headerScrollController.dispose();
     for (final controller in _barbellWeightControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _bodyweightControllers.values) {
       controller.dispose();
     }
     for (var sets in _exerciseSets.values) {
@@ -360,7 +371,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             targetMuscle: ex.targetMuscle,
             equipment: ex.equipment,
           );
-      final double userBodyweight = _userProfile?.weight ?? 70.0;
+      final double userBodyweight =
+          _exerciseBodyweight[ex.id] ?? (_userProfile?.weight ?? 70.0);
 
       final bool useBar = _useBarbell[ex.id] ?? false;
       final double barW = _barbellWeight[ex.id] ?? 20.0;
@@ -369,9 +381,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         final localSet = sets[i];
         final weight = double.tryParse(localSet.weightController.text) ?? 0.0;
         final reps = int.tryParse(localSet.repsController.text) ?? 0;
-        final distanceVal =
+        double distanceVal =
             double.tryParse(localSet.distanceController.text) ?? 0.0;
-        final durationVal = localSet.durationInSeconds;
+        int durationVal = localSet.durationInSeconds;
 
         final double actualWeight = useBar ? (2.0 * weight + barW) : weight;
 
@@ -385,6 +397,25 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         bool isCompleted = false;
         if (trackingType == 'cardio_time') {
           isCompleted = durationVal > 0 || distanceVal > 0;
+          if (isCompleted) {
+            // If duration was omitted by user, infer from session elapsed time or distance
+            if (durationVal <= 0) {
+              if (_secondsElapsed > 0) {
+                durationVal = _secondsElapsed;
+              } else if (distanceVal > 0) {
+                durationVal = ((distanceVal / 8.5) * 3600).round();
+              }
+            } else if (distanceVal <= 0) {
+              final nameLower = ex.name.toLowerCase();
+              if (nameLower.contains('cycl') || nameLower.contains('bike')) {
+                distanceVal = (durationVal / 3600.0) * 20.0;
+              } else if (nameLower.contains('walk')) {
+                distanceVal = (durationVal / 3600.0) * 5.0;
+              } else {
+                distanceVal = (durationVal / 3600.0) * 8.5;
+              }
+            }
+          }
         } else if (trackingType == 'time_only') {
           isCompleted = durationVal > 0;
         } else if (trackingType == 'bodyweight') {
@@ -404,6 +435,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                 : actualWeight,
             weightType: wType,
             userBodyweight: userBodyweight,
+            exerciseName: ex.name,
           );
           final double e1rm = WorkoutCalculator.calculateE1RM(
             effWeight,
@@ -419,7 +451,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               weight:
                   trackingType == 'cardio_time' || trackingType == 'time_only'
                   ? 0.0
-                  : actualWeight,
+                  : (wType == 'bodyweight' || wType == 'added' || wType == 'assisted'
+                      ? effWeight
+                      : actualWeight),
               reps: trackingType == 'cardio_time'
                   ? 1
                   : (trackingType == 'time_only' ? durationVal : reps),
@@ -431,7 +465,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                   : const Value.absent(),
               durationSeconds:
                   (trackingType == 'cardio_time' || trackingType == 'time_only')
-                  ? Value(durationVal)
+                  ? Value(durationVal > 0 ? durationVal : null)
                   : const Value.absent(),
             ),
           );
@@ -457,7 +491,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         title: Text(_isPastDate ? 'Save Past Workout?' : 'Finish Workout?'),
         content: Text(
           _isPastDate
-              ? 'Save this workout session for $_formattedWorkoutDate (${_workoutDate.day}/${_workoutDate.month}/${_workoutDate.year})?'
+              ? 'Save this workout session for $_formattedWorkoutDate?'
               : 'Are you sure you want to finish this workout and save the history?',
         ),
         actions: [
@@ -482,7 +516,20 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     try {
       final sessionId = 'session-${DateTime.now().millisecondsSinceEpoch}';
 
+      final setsNeedingDuration = setsCompanions
+          .where((s) => !s.durationSeconds.present || s.durationSeconds.value == null || s.durationSeconds.value == 0)
+          .length;
+      final avgDuration = setsNeedingDuration > 0
+          ? (_secondsElapsed > 0 ? _secondsElapsed ~/ setsNeedingDuration : 60)
+          : 0;
+
       final finalCompanions = setsCompanions.map((set) {
+        if (!set.durationSeconds.present || set.durationSeconds.value == null || set.durationSeconds.value == 0) {
+          return set.copyWith(
+            sessionId: Value(sessionId),
+            durationSeconds: Value(avgDuration > 0 ? avgDuration : 60),
+          );
+        }
         return set.copyWith(sessionId: Value(sessionId));
       }).toList();
 
@@ -493,11 +540,43 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         setsCompanions: finalCompanions,
       );
 
+      StreakService.notifyWorkoutUpdated();
+
       double totalVolume = 0.0;
+      double totalDistance = 0.0;
+      double totalBurnedCalories = 0.0;
+      final exMap = {for (var e in _sessionExercises) e.id: e};
+
       for (final companion in finalCompanions) {
         final w = companion.weight.value;
         final r = companion.reps.value;
         totalVolume += (w * r);
+
+        final dist = companion.distance.present ? (companion.distance.value ?? 0.0) : 0.0;
+        totalDistance += dist;
+
+        final ex = exMap[companion.exerciseId.value];
+        final exName = ex?.name ?? '';
+        final tType = WorkoutCalculator.normalizeTrackingType(
+          ex?.trackingType,
+          name: exName,
+          targetMuscle: ex?.targetMuscle ?? '',
+          equipment: ex?.equipment ?? '',
+        );
+
+        final dur = companion.durationSeconds.present ? (companion.durationSeconds.value ?? 60) : 60;
+        final cal = WorkoutCalculator.calculateSetCalories(
+          exerciseName: exName,
+          targetMuscle: ex?.targetMuscle ?? '',
+          equipment: ex?.equipment ?? '',
+          trackingType: tType,
+          bodyweightKg: _userProfile?.weight ?? 70.0,
+          weight: w,
+          reps: r,
+          distanceKm: dist,
+          durationSeconds: dur,
+        );
+        totalBurnedCalories += cal;
       }
 
       if (mounted) {
@@ -505,6 +584,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           totalVolume: totalVolume,
           totalSets: finalCompanions.length,
           durationSeconds: _secondsElapsed,
+          totalCalories: totalBurnedCalories,
+          totalDistance: totalDistance,
         );
         Navigator.of(context).pop(true);
       }
@@ -531,7 +612,33 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     required double totalVolume,
     required int totalSets,
     required int durationSeconds,
+    double totalCalories = 0.0,
+    double totalDistance = 0.0,
   }) async {
+    final List<Widget> statWidgets = [
+      _buildSummaryStat('Duration', _formatDuration(durationSeconds), Icons.timer, Theme.of(context).colorScheme.primary),
+      _buildSummaryStat('Burned', '${totalCalories.round()} kcal', Icons.local_fire_department, Colors.orange),
+    ];
+
+    if (totalDistance > 0) {
+      statWidgets.add(
+        _buildSummaryStat('Distance', '${totalDistance.toStringAsFixed(2)} km', Icons.directions_run, Colors.blueAccent),
+      );
+    }
+
+    if (totalVolume > 0) {
+      final volStr = totalVolume >= 1000
+          ? '${(totalVolume / 1000).toStringAsFixed(1)}k kg'
+          : '${totalVolume.toStringAsFixed(0)} kg';
+      statWidgets.add(
+        _buildSummaryStat('Volume', volStr, Icons.stacked_bar_chart, Colors.purpleAccent),
+      );
+    }
+
+    statWidgets.add(
+      _buildSummaryStat('Sets', '$totalSets', Icons.fitness_center, Colors.teal),
+    );
+
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -552,18 +659,16 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Great job! Your session has been saved to your progress history.',
+              'Workout saved to history.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildSummaryStat('Duration', _formatDuration(durationSeconds), Icons.timer),
-                _buildSummaryStat('Sets', '$totalSets', Icons.fitness_center),
-                _buildSummaryStat('Volume', '${totalVolume.toStringAsFixed(0)} kg', Icons.stacked_bar_chart),
-              ],
+            Wrap(
+              alignment: WrapAlignment.spaceEvenly,
+              spacing: 12,
+              runSpacing: 12,
+              children: statWidgets,
             ),
           ],
         ),
@@ -572,7 +677,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             width: double.infinity,
             child: FilledButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Awesome!'),
+              child: const Text('Done'),
             ),
           ),
         ],
@@ -580,14 +685,27 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     );
   }
 
-  Widget _buildSummaryStat(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-      ],
+  Widget _buildSummaryStat(String label, String value, IconData icon, Color iconColor) {
+    return SizedBox(
+      width: 78,
+      child: Column(
+        children: [
+          Icon(icon, size: 22, color: iconColor),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ],
+      ),
     );
   }
 
@@ -621,50 +739,29 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               widget.routine?.routine.name ?? 'Free Workout',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            Row(
-              children: [
-                Text(
-                  'Time: ${_formatDuration(_secondsElapsed)}',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: _pickWorkoutDate,
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.calendar_month_outlined,
-                          size: 13,
-                          color: _isPastDate ? Colors.amber.shade700 : Colors.blue,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          _formattedWorkoutDate,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: _isPastDate ? Colors.amber.shade700 : Colors.blue,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'Time: ${_formatDuration(_secondsElapsed)}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(
+              Icons.calendar_month_outlined,
+              color: _isPastDate ? Colors.amber.shade700 : null,
+            ),
+            tooltip: 'Workout Date',
+            onPressed: _pickWorkoutDate,
+          ),
           IconButton(
             icon: const Icon(Icons.add_box_outlined),
             tooltip: 'Add Exercise',
@@ -672,13 +769,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           ),
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                visualDensity: VisualDensity.compact,
               ),
               onPressed: _finishWorkout,
-              child: const Text('Finish Workout'),
+              child: const Text('Finish'),
             ),
           ),
         ],
@@ -690,37 +787,51 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                 if (_isPastDate)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF332A15)
-                        : const Color(0xFFFFF9E6),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF261E0F)
+                          : const Color(0xFFFFFBEB),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.amber.shade700.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                    ),
                     child: Row(
                       children: [
-                        Icon(Icons.history, size: 16, color: Colors.amber.shade800),
+                        Icon(Icons.history_rounded, size: 18, color: Colors.amber.shade700),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Logging workout for $_formattedWorkoutDate (${_workoutDate.day}/${_workoutDate.month}/${_workoutDate.year})',
+                            'Past Workout: $_formattedWorkoutDate',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w600,
                               color: Theme.of(context).brightness == Brightness.dark
                                   ? Colors.amber.shade200
                                   : Colors.amber.shade900,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 8),
                         InkWell(
+                          borderRadius: BorderRadius.circular(6),
                           onTap: _pickWorkoutDate,
-                          child: Text(
-                            'Change Date',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.amber.shade300
-                                  : Colors.amber.shade800,
-                              decoration: TextDecoration.underline,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            child: Text(
+                              'Change Date',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.amber.shade300
+                                    : Colors.amber.shade800,
+                                decoration: TextDecoration.underline,
+                              ),
                             ),
                           ),
                         ),
@@ -898,17 +1009,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 tooltip: 'View Exercise Instructions',
-                onPressed: () async {
-                  final query = Uri.encodeComponent(
-                    '${ex.name} exercise how to form',
-                  );
-                  final url = Uri.parse(
-                    'https://www.google.com/search?q=$query',
-                  );
-                  if (await canLaunchUrl(url)) {
-                    await launchUrl(url, mode: LaunchMode.externalApplication);
-                  }
-                },
+                onPressed: () => UrlLauncherHelper.openExerciseFormGuide(
+                  context,
+                  ex.name,
+                ),
               ),
             ],
           ),
@@ -987,6 +1091,20 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           // Barbell Calculator checkbox
           if (activeType == 'weight_reps') ...[
             _buildBarbellOptions(ex.id),
+            const SizedBox(height: 16.0),
+          ],
+
+          // Bodyweight & Tonnage Options
+          if (activeType == 'bodyweight' ||
+              activeType == 'bodyweight_weighted' ||
+              activeType == 'bodyweight_assisted') ...[
+            _buildBodyweightOptions(ex, activeType),
+            const SizedBox(height: 16.0),
+          ],
+
+          // Cardio Options
+          if (activeType == 'cardio_time') ...[
+            _buildCardioOptions(ex),
             const SizedBox(height: 16.0),
           ],
 
@@ -1082,8 +1200,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             controller: _notesController,
             maxLines: 3,
             decoration: InputDecoration(
-              hintText:
-                  'Enter notes for today\'s workout (feelings, injuries...)',
+              hintText: _isPastDate
+                  ? 'Enter notes for this past workout (feelings, injuries...)'
+                  : 'Enter notes for today\'s workout (feelings, injuries...)',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -1202,7 +1321,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               ),
               if (useBar)
                 Padding(
-                  padding: const EdgeInsets.only(left: 48.0, bottom: 4.0),
+                  padding: const EdgeInsets.only(left: 48.0, bottom: 4.0, right: 8.0),
                   child: Builder(
                     builder: (context) {
                       final sets = _exerciseSets[exerciseId] ?? [];
@@ -1210,8 +1329,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                           ? (double.tryParse(sets.first.weightController.text) ?? 0.0)
                           : 0.0;
                       final totalFirst = 2.0 * firstSetWeight + barW;
+                      final text = firstSetWeight > 0
+                          ? 'Example (Set 1): Total = ${LocalWorkoutSet.formatWeight(totalFirst)} kg (Bar ${LocalWorkoutSet.formatWeight(barW)} kg + 2 × ${LocalWorkoutSet.formatWeight(firstSetWeight)} kg/side)'
+                          : 'Example formula: Total = Bar (${LocalWorkoutSet.formatWeight(barW)} kg) + (2 × weight/side)';
                       return Text(
-                        'Total: ${LocalWorkoutSet.formatWeight(totalFirst)} kg (Bar ${LocalWorkoutSet.formatWeight(barW)} kg + 2 × ${LocalWorkoutSet.formatWeight(firstSetWeight)} kg)',
+                        text,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
@@ -1224,6 +1346,238 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildBodyweightOptions(Exercise ex, String activeType) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final defaultBW = _userProfile?.weight ?? 70.0;
+
+    if (!_exerciseBodyweight.containsKey(ex.id)) {
+      _exerciseBodyweight[ex.id] = defaultBW;
+    }
+    final currentBW = _exerciseBodyweight[ex.id]!;
+
+    if (!_bodyweightControllers.containsKey(ex.id)) {
+      _bodyweightControllers[ex.id] = TextEditingController(
+        text: LocalWorkoutSet.formatWeight(currentBW),
+      );
+    }
+    final controller = _bodyweightControllers[ex.id]!;
+
+    final factor = WorkoutCalculator.getBodyweightFactor(ex.name);
+    final explanation = WorkoutCalculator.getBodyweightExplanation(ex.name);
+    final baseLoad = currentBW * factor;
+
+    return Card(
+      elevation: 0,
+      color: isDark ? Colors.white10 : Colors.grey.shade100,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.accessibility_new,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Bodyweight in workout:',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                SizedBox(
+                  width: 62,
+                  height: 32,
+                  child: TextField(
+                    controller: controller,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: const InputDecoration(
+                      contentPadding: EdgeInsets.symmetric(vertical: 6),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (text) {
+                      final val = double.tryParse(text);
+                      if (val != null && val > 0) {
+                        setState(() {
+                          _exerciseBodyweight[ex.id] = val;
+                        });
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Text(
+                  'kg',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.balance,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Tonnage load: $explanation • ~${LocalWorkoutSet.formatWeight(baseLoad)} kg/rep',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardioOptions(Exercise ex) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sets = _exerciseSets[ex.id] ?? [];
+
+    double totalDist = 0.0;
+    int totalDurSec = 0;
+    for (var s in sets) {
+      final d = double.tryParse(s.distanceController.text) ?? 0.0;
+      totalDist += d;
+      totalDurSec += s.durationInSeconds;
+    }
+
+    final double userWeight = _exerciseBodyweight[ex.id] ?? (_userProfile?.weight ?? 70.0);
+    final double estimatedCalories = sets.fold<double>(0.0, (sum, s) {
+      final d = double.tryParse(s.distanceController.text) ?? 0.0;
+      final dur = s.durationInSeconds;
+      return sum +
+          WorkoutCalculator.calculateSetCalories(
+            exerciseName: ex.name,
+            targetMuscle: ex.targetMuscle,
+            equipment: ex.equipment,
+            trackingType: 'cardio_time',
+            bodyweightKg: userWeight,
+            distanceKm: d,
+            durationSeconds: dur,
+          );
+    });
+
+    String paceText = '--:-- min/km';
+    String speedText = '';
+    if (totalDist > 0 && totalDurSec > 0) {
+      paceText = WorkoutCalculator.calculatePaceString(totalDist, totalDurSec);
+      final speed = WorkoutCalculator.calculateSpeedKmh(totalDist, totalDurSec);
+      speedText = ' • ${speed.toStringAsFixed(1)} km/h';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.blueAccent.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.directions_run, size: 20, color: Colors.blueAccent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Cardio Metrics & Energy Expenditure',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.local_fire_department, size: 14, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    Text(
+                      '~${estimatedCalories.round()} kcal',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.speed,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    totalDist > 0 || totalDurSec > 0
+                        ? 'Total: ${totalDist.toStringAsFixed(2)} km • ${totalDurSec ~/ 60}m ${totalDurSec % 60}s • Pace: $paceText$speedText'
+                        : 'Log distance and duration below.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1326,6 +1680,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                 decimal: true,
               ),
               textAlign: TextAlign.center,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 hintText: '0.00',
                 border: InputBorder.none,
@@ -1342,6 +1697,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               controller: localSet.durationController,
               keyboardType: TextInputType.datetime,
               textAlign: TextAlign.center,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 hintText: 'MM:SS',
                 border: InputBorder.none,
@@ -2157,20 +2513,11 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
                                     ).colorScheme.primary,
                                   ),
                                   tooltip: 'Search for form guide',
-                                  onPressed: () async {
-                                    final query = Uri.encodeComponent(
-                                      '${ex.name} exercise how to form',
-                                    );
-                                    final url = Uri.parse(
-                                      'https://www.google.com/search?q=$query',
-                                    );
-                                    if (await canLaunchUrl(url)) {
-                                      await launchUrl(
-                                        url,
-                                        mode: LaunchMode.externalApplication,
-                                      );
-                                    }
-                                  },
+                                  onPressed: () =>
+                                      UrlLauncherHelper.openExerciseFormGuide(
+                                    context,
+                                    ex.name,
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
                                 Icon(

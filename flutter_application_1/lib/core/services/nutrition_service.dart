@@ -6,7 +6,7 @@ class NutritionService {
     required String gender,
   }) {
     final genderValue = gender.toLowerCase().trim();
-    if (genderValue == 'male' || genderValue == 'nam') {
+    if (genderValue == 'male') {
       return (10.0 * weight) + (6.25 * height) - (5.0 * age) + 5.0;
     }
     return (10.0 * weight) + (6.25 * height) - (5.0 * age) - 161.0;

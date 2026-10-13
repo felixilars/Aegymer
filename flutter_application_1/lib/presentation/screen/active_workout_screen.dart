@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_application_1/core/databases/app_database.dart';
 import 'package:flutter_application_1/core/utils/workout_cal.dart';
+import 'package:flutter_application_1/core/services/sync_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LocalWorkoutSet {
@@ -54,6 +55,11 @@ class LocalWorkoutSet {
         final m = int.tryParse(parts[0]) ?? 0;
         final s = int.tryParse(parts[1]) ?? 0;
         return m * 60 + s;
+      } else if (parts.length == 3) {
+        final h = int.tryParse(parts[0]) ?? 0;
+        final m = int.tryParse(parts[1]) ?? 0;
+        final s = int.tryParse(parts[2]) ?? 0;
+        return h * 3600 + m * 60 + s;
       }
     }
     return int.tryParse(text) ?? 0;
@@ -167,6 +173,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
 
     // 2. Load all exercises in database (for additions)
     _allAvailableExercises = await widget.db.select(widget.db.exercises).get();
+    if (_allAvailableExercises.isEmpty) {
+      await SyncService(widget.db).seedDefaultExercisesIfNeeded();
+      _allAvailableExercises = await widget.db.select(widget.db.exercises).get();
+    }
 
     // 3. Load routine exercises
     if (widget.routine != null) {
@@ -236,6 +246,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     final sets = _exerciseSets[exerciseId] ?? [];
 
     double lastW = WorkoutCalculator.getDefaultInputWeight(trackingType);
+    final bool useBar = _useBarbell[exerciseId] ?? false;
+    final double barW = _barbellWeight[exerciseId] ?? 20.0;
+    if (useBar && trackingType == 'weight_reps') {
+      lastW = max(0.0, (lastW - barW) / 2.0);
+    }
     int lastR = 10;
     double lastDist = 0.0;
     int lastDur = 0;
@@ -959,6 +974,31 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     );
   }
 
+  void _onToggleBarbell(String exerciseId, bool val) {
+    setState(() {
+      _useBarbell[exerciseId] = val;
+      final double barW = _barbellWeight[exerciseId] ?? 20.0;
+      final sets = _exerciseSets[exerciseId] ?? [];
+      for (final set in sets) {
+        final currentVal =
+            double.tryParse(set.weightController.text) ?? 0.0;
+        if (val) {
+          // Convert from total barbell weight to weight per side: (Total - Barbell) / 2
+          final oneSide = max(0.0, (currentVal - barW) / 2.0);
+          set.weightController.text = LocalWorkoutSet.formatWeight(
+            oneSide,
+          );
+        } else {
+          // Convert from weight per side to total barbell weight: 2 * (Per Side) + Barbell
+          final total = 2.0 * currentVal + barW;
+          set.weightController.text = LocalWorkoutSet.formatWeight(
+            total,
+          );
+        }
+      }
+    });
+  }
+
   Widget _buildBarbellOptions(String exerciseId) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bool useBar = _useBarbell[exerciseId] ?? false;
@@ -975,81 +1015,93 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       elevation: 0,
       color: isDark ? Colors.white10 : Colors.grey.shade100,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
-        child: Row(
-          children: [
-            Checkbox(
-              value: useBar,
-              onChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  _useBarbell[exerciseId] = val;
-                  // Convert current sets weight if needed
-                  final sets = _exerciseSets[exerciseId] ?? [];
-                  for (final set in sets) {
-                    final currentVal =
-                        double.tryParse(set.weightController.text) ?? 0.0;
-                    if (val) {
-                      // Total weight -> 1 side weight: (Total - Bar) / 2
-                      final oneSide = max(0.0, (currentVal - barW) / 2.0);
-                      set.weightController.text = LocalWorkoutSet.formatWeight(
-                        oneSide,
-                      );
-                    } else {
-                      // 1 side weight -> Total weight: 2 * 1side + Bar
-                      final total = 2.0 * currentVal + barW;
-                      set.weightController.text = LocalWorkoutSet.formatWeight(
-                        total,
-                      );
-                    }
-                  }
-                });
-              },
-            ),
-            const Expanded(
-              child: Text(
-                'Use Barbell (enter weight on one side)',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _onToggleBarbell(exerciseId, !useBar),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Checkbox(
+                    value: useBar,
+                    onChanged: (val) {
+                      if (val != null) {
+                        _onToggleBarbell(exerciseId, val);
+                      }
+                    },
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Use Barbell (enter weight on one side)',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  if (useBar) ...[
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Barbell:',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(width: 4),
+                    SizedBox(
+                      width: 52,
+                      height: 32,
+                      child: TextField(
+                        controller: controller,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: const InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(vertical: 6),
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (text) {
+                          final val = double.tryParse(text) ?? 20.0;
+                          setState(() {
+                            _barbellWeight[exerciseId] = val;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'kg',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ],
               ),
-            ),
-            if (useBar) ...[
-              const SizedBox(width: 8),
-              const Text(
-                'Barbell:',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(width: 4),
-              SizedBox(
-                width: 50,
-                height: 30,
-                child: TextField(
-                  controller: controller,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+              if (useBar)
+                Padding(
+                  padding: const EdgeInsets.only(left: 48.0, bottom: 4.0),
+                  child: Builder(
+                    builder: (context) {
+                      final sets = _exerciseSets[exerciseId] ?? [];
+                      final firstSetWeight = sets.isNotEmpty
+                          ? (double.tryParse(sets.first.weightController.text) ?? 0.0)
+                          : 0.0;
+                      final totalFirst = 2.0 * firstSetWeight + barW;
+                      return Text(
+                        'Total: ${LocalWorkoutSet.formatWeight(totalFirst)} kg (Bar ${LocalWorkoutSet.formatWeight(barW)} kg + 2 × ${LocalWorkoutSet.formatWeight(firstSetWeight)} kg)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      );
+                    },
                   ),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(vertical: 8),
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (text) {
-                    final val = double.tryParse(text) ?? 0.0;
-                    _barbellWeight[exerciseId] = val;
-                  },
                 ),
-              ),
-              const SizedBox(width: 4),
-              const Text(
-                'kg',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );

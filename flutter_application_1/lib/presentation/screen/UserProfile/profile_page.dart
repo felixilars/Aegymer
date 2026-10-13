@@ -157,6 +157,7 @@ class Profilepage extends State<ProfilePage> {
           .insertOnConflictUpdate(
             UserProfilesCompanion.insert(
               id: profileId,
+              email: drift.Value(_existingProfile?.email),
               gender: _gender,
               age: age,
               weight: weight,

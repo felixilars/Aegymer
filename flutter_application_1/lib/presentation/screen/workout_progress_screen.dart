@@ -329,7 +329,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
           minX: 0,
           maxX: (spots.length - 1).toDouble(),
           minY: max(0.0, minY - (minY * 0.1)),
-          maxY: maxY + (maxY * 0.1),
+          maxY: maxY <= minY ? (minY == 0 ? 10.0 : minY * 1.2) : (maxY + (maxY * 0.1)),
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,

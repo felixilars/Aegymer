@@ -9,7 +9,10 @@ class WorkoutCalculator {
     if (reps <= 0) {
       return 0.0;
     }
-    return weight * (1 + (reps / 30));
+    if (reps == 1) {
+      return weight;
+    }
+    return weight * (1 + (reps / 30.0));
   }
 
   // Calories burned during a workout

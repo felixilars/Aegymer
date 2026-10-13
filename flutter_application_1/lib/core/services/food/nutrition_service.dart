@@ -44,11 +44,15 @@ class NutritionService {
     required double calories,
     required double weight,
   }){
+    final proteinGrams = weight * 2;
+    final fatGrams = (calories * 0.3) / 9;
+    final remainingCarbCal = calories - (proteinGrams * 4) - (fatGrams * 9);
+    final carbsGrams = remainingCarbCal > 0 ? remainingCarbCal / 4 : 0.0;
     return NutritionMacros(
       calories: calories,
-      protein: weight * 2, // 2 grams of protein per kg of body weight
-      carbs: (calories * 0.7 - weight * 2 * 4) / 4, // Remaining calories after protein and fat, divided by 4 (calories per gram of carbs)
-      fat: (calories * 0.3) / 9, // 30% of calories from fat
+      protein: proteinGrams,
+      carbs: carbsGrams,
+      fat: fatGrams,
     );
   }
 }

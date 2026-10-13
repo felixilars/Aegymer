@@ -9,19 +9,25 @@ import 'package:flutter_application_1/presentation/screen/welcome_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  CheckFirstTime.setFirstTime(true); // Set the first time flag to true for testing purposes
-  await Supabase.initialize(
-    url: 'https://faegwvospgqmsurjpbvo.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhZWd3dm9zcGdxbXN1cmpwYnZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1ODk5MTIsImV4cCI6MjA5NzE2NTkxMn0.gLY0YRlHwNwLOCLEI8Ob-hxtMcT7EtBhXCQQBJQytls',
-  );
+
+  bool isSupabaseReady = false;
+  try {
+    await Supabase.initialize(
+      url: 'https://faegwvospgqmsurjpbvo.supabase.co',
+      anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhZWd3dm9zcGdxbXN1cmpwYnZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1ODk5MTIsImV4cCI6MjA5NzE2NTkxMn0.gLY0YRlHwNwLOCLEI8Ob-hxtMcT7EtBhXCQQBJQytls',
+    );
+    isSupabaseReady = true;
+  } catch (e) {
+    debugPrint('Supabase initialization failed or device is offline: $e');
+    isSupabaseReady = false;
+  }
 
   final db = AppDatabase();
-  final syncService = SyncService(db);
+  final syncService = SyncService(db, isSupabaseConfigured: isSupabaseReady);
 
-  // Sync data asynchronously in background without blocking UI startup
-  unawaited(syncService.syncExercisesFromCloud());
-  unawaited(syncService.syncFoodsFromCloud());
+  // Initialize offline seed fallback and attempt cloud sync in background
+  unawaited(syncService.initializeAndSync());
 
   runApp(const MyApp());
 }

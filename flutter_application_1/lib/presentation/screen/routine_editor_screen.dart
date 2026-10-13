@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_application_1/core/databases/app_database.dart';
 import 'package:flutter_application_1/core/utils/workout_cal.dart';
+import 'package:flutter_application_1/core/services/sync_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class RoutineEditorScreen extends StatefulWidget {
@@ -49,7 +50,11 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
       _isLoading = true;
     });
     try {
-      final list = await widget.db.select(widget.db.exercises).get();
+      var list = await widget.db.select(widget.db.exercises).get();
+      if (list.isEmpty) {
+        await SyncService(widget.db).seedDefaultExercisesIfNeeded();
+        list = await widget.db.select(widget.db.exercises).get();
+      }
       setState(() {
         _availableExercises = list;
       });

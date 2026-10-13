@@ -8,6 +8,9 @@ import 'package:flutter_application_1/presentation/screen/workout_launcher_scree
 import 'package:flutter_application_1/presentation/screen/workout_progress_screen.dart';
 import 'package:flutter_application_1/core/databases/app_database.dart';
 
+import 'package:flutter_application_1/presentation/widgets/cloud_sync_banner.dart';
+import 'package:flutter_application_1/core/services/sync_service.dart';
+
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
 
@@ -69,7 +72,12 @@ class _MainPageState extends State<MainPage> {
 
     return Scaffold(
       appBar: hasAppBar ? currentAppBar : null,
-      body: _pages[_selectedIndex],
+      body: Column(
+        children: [
+          CloudSyncBanner(syncService: SyncService(_db)),
+          Expanded(child: _pages[_selectedIndex]),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {

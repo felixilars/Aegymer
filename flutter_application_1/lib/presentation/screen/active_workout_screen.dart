@@ -76,8 +76,14 @@ class LocalWorkoutSet {
 class ActiveWorkoutScreen extends StatefulWidget {
   final AppDatabase db;
   final RoutineWithExercises? routine;
+  final DateTime? initialDate;
 
-  const ActiveWorkoutScreen({super.key, required this.db, this.routine});
+  const ActiveWorkoutScreen({
+    super.key,
+    required this.db,
+    this.routine,
+    this.initialDate,
+  });
 
   @override
   State<ActiveWorkoutScreen> createState() => _ActiveWorkoutScreenState();
@@ -91,6 +97,47 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   Timer? _timer;
   int _secondsElapsed = 0;
   bool _isLoading = true;
+  late DateTime _workoutDate = widget.initialDate ?? DateTime.now();
+
+  bool get _isPastDate {
+    final now = DateTime.now();
+    return _workoutDate.year != now.year ||
+        _workoutDate.month != now.month ||
+        _workoutDate.day != now.day;
+  }
+
+  String get _formattedWorkoutDate {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selectedDay =
+        DateTime(_workoutDate.year, _workoutDate.month, _workoutDate.day);
+    final diff = today.difference(selectedDay).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    return '${_workoutDate.day}/${_workoutDate.month}/${_workoutDate.year}';
+  }
+
+  Future<void> _pickWorkoutDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _workoutDate.isAfter(now) ? now : _workoutDate,
+      firstDate: DateTime(2020),
+      lastDate: now,
+      helpText: 'Select Workout Date',
+    );
+    if (picked != null) {
+      setState(() {
+        _workoutDate = DateTime(
+          picked.year,
+          picked.month,
+          picked.day,
+          _workoutDate.hour,
+          _workoutDate.minute,
+        );
+      });
+    }
+  }
 
   // Active workout exercises and their sets
   List<Exercise> _sessionExercises = [];
@@ -407,9 +454,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Finish Workout?'),
-        content: const Text(
-          'Are you sure you want to finish this workout and save the history?',
+        title: Text(_isPastDate ? 'Save Past Workout?' : 'Finish Workout?'),
+        content: Text(
+          _isPastDate
+              ? 'Save this workout session for $_formattedWorkoutDate (${_workoutDate.day}/${_workoutDate.month}/${_workoutDate.year})?'
+              : 'Are you sure you want to finish this workout and save the history?',
         ),
         actions: [
           TextButton(
@@ -439,7 +488,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
 
       await widget.db.saveWorkoutSession(
         sessionId: sessionId,
-        date: DateTime.now(),
+        date: _workoutDate,
         notes: _notesController.text.trim(),
         setsCompanions: finalCompanions,
       );
@@ -577,9 +626,41 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               widget.routine?.routine.name ?? 'Free Workout',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
-            Text(
-              'Time: ${_formatDuration(_secondsElapsed)}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            Row(
+              children: [
+                Text(
+                  'Time: ${_formatDuration(_secondsElapsed)}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: _pickWorkoutDate,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.calendar_month_outlined,
+                          size: 13,
+                          color: _isPastDate ? Colors.amber.shade700 : Colors.blue,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          _formattedWorkoutDate,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: _isPastDate ? Colors.amber.shade700 : Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -606,6 +687,46 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           ? _buildEmptyState()
           : Column(
               children: [
+                if (_isPastDate)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF332A15)
+                        : const Color(0xFFFFF9E6),
+                    child: Row(
+                      children: [
+                        Icon(Icons.history, size: 16, color: Colors.amber.shade800),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Logging workout for $_formattedWorkoutDate (${_workoutDate.day}/${_workoutDate.month}/${_workoutDate.year})',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.amber.shade200
+                                  : Colors.amber.shade900,
+                            ),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: _pickWorkoutDate,
+                          child: Text(
+                            'Change Date',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.amber.shade300
+                                  : Colors.amber.shade800,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 _buildHorizontalIndicatorBar(),
                 const Divider(height: 1),
                 Expanded(

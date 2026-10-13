@@ -22,7 +22,7 @@ class _WelcomePageState extends State<WelcomePage> {
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
   final _activityController = TextEditingController();
-  final _targetController = TextEditingController();
+  String _selectedTarget = 'Gain Muscle';
   final _preferencesController = TextEditingController();
 
   final _db = AppDatabase();
@@ -49,7 +49,7 @@ class _WelcomePageState extends State<WelcomePage> {
 
       double targetCal = nutritionService.calculateTargetCalories(
         tdee : tdee,
-        goal: _targetController.text.trim(),
+        goal: _selectedTarget,
       );
 
       NutritionMacros macros = nutritionService.calculateMacros(
@@ -71,7 +71,7 @@ class _WelcomePageState extends State<WelcomePage> {
         weight: double.parse(_weightController.text.trim()),
         height: double.parse(_heightController.text.trim()),
         activityLevel: double.parse(_activityController.text.trim()),
-        target: _targetController.text.trim(),
+        target: _selectedTarget,
         dailyCalories: macros.calories,
         dailyProtein: macros.protein,
         dailyCarbs: macros.carbs,
@@ -111,7 +111,6 @@ class _WelcomePageState extends State<WelcomePage> {
     _weightController.dispose();
     _heightController.dispose();
     _activityController.dispose();
-    _targetController.dispose();
     _preferencesController.dispose();
     _db.close();
     super.dispose();
@@ -261,15 +260,45 @@ class _WelcomePageState extends State<WelcomePage> {
                 ),
                 const SizedBox(height: 16),
 
-                _buildTextField(
-                  controller: _targetController,
-                  label: 'Target',
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your target';
-                    }
-                    return null;
-                  },
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Goal',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(
+                            value: 'Lose Fat',
+                            label: Text('Lose Fat'),
+                            icon: Icon(Icons.trending_down),
+                          ),
+                          ButtonSegment(
+                            value: 'Maintenance',
+                            label: Text('Maintain'),
+                            icon: Icon(Icons.remove),
+                          ),
+                          ButtonSegment(
+                            value: 'Gain Muscle',
+                            label: Text('Gain Muscle'),
+                            icon: Icon(Icons.trending_up),
+                          ),
+                        ],
+                        selected: {_selectedTarget},
+                        onSelectionChanged: (newSelection) {
+                          setState(() => _selectedTarget = newSelection.first);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 

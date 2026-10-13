@@ -29,6 +29,10 @@ class CloudSyncState {
 }
 
 class SyncService {
+  static const String supabaseUrl = 'https://faegwvospgqmsurjpbvo.supabase.co';
+  static const String supabaseAnonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhZWd3dm9zcGdxbXN1cmpwYnZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1ODk5MTIsImV4cCI6MjA5NzE2NTkxMn0.gLY0YRlHwNwLOCLEI8Ob-hxtMcT7EtBhXCQQBJQytls';
+
   final AppDatabase _db;
   final bool isSupabaseConfigured;
 
@@ -38,8 +42,31 @@ class SyncService {
 
   SyncService(this._db, {this.isSupabaseConfigured = true});
 
+  static bool get isSupabaseInitialized {
+    try {
+      Supabase.instance.client;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Ensures Supabase is initialized even if initial launch failed while server was paused
+  static Future<bool> ensureSupabaseReady() async {
+    if (isSupabaseInitialized) return true;
+    try {
+      await Supabase.initialize(
+        url: supabaseUrl,
+        anonKey: supabaseAnonKey,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('[SyncService] Supabase initialize attempt failed: $e');
+      return false;
+    }
+  }
+
   SupabaseClient? get _supabase {
-    if (!isSupabaseConfigured) return null;
     try {
       return Supabase.instance.client;
     } catch (_) {
@@ -55,11 +82,13 @@ class SyncService {
     await seedDefaultExercisesIfNeeded();
     await ensureUserReferencedExercisesPreserved();
 
-    // Step 2: Sync with cloud if configured
-    if (!isSupabaseConfigured || _supabase == null) {
+    // Step 2: Attempt connection and initialization
+    final ready = await ensureSupabaseReady();
+    final client = _supabase;
+    if (!ready || client == null) {
       syncState.value = CloudSyncState(
         status: CloudConnectionStatus.offline,
-        message: 'Supabase cloud server is currently unavailable. Running in Offline Mode (Local-first).',
+        message: 'Online exercise library is unreachable. Using built-in local exercise catalog.',
         lastSyncTime: DateTime.now(),
       );
       return;

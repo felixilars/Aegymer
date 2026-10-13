@@ -25,7 +25,7 @@ class _CloudSyncBannerState extends State<CloudSyncBanner> {
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Cloud Connection & Offline Status',
+                  'Exercise Catalog Offline',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -37,35 +37,35 @@ class _CloudSyncBannerState extends State<CloudSyncBanner> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildInfoBlock(
-                  icon: Icons.error_outline_rounded,
+                  icon: Icons.cloud_off_rounded,
                   color: Colors.orange,
-                  title: 'Connection Status',
-                  description: state.message ??
-                      'The Supabase server is unreachable or your device is offline. The app is running in Local Database mode.',
+                  title: 'Online Catalog Status',
+                  description:
+                      'Cannot connect to the online exercise and food database. The app is running smoothly with built-in exercises.',
                 ),
                 const SizedBox(height: 12),
                 _buildInfoBlock(
                   icon: Icons.shield_outlined,
                   color: Colors.green,
-                  title: 'Local Storage',
+                  title: '100% Private & Local',
                   description:
-                      'Workout logs, custom routines, exercise history, body weight entries, and nutrition records are saved in local SQLite on your device.',
+                      'Aegymer never collects, uploads, or syncs your personal data. Your workouts, routines, body measurements, and profile stay strictly on your device.',
                 ),
                 const SizedBox(height: 12),
                 _buildInfoBlock(
                   icon: Icons.check_circle_outline_rounded,
                   color: Colors.blue,
-                  title: 'Offline Features',
+                  title: 'Full Offline Access',
                   description:
-                      '• Active workout tracking, set/reps logging, and rest timer.\n• Access to core exercises and routine templates.\n• Weight progression and meal scoring.',
+                      '• Active workout tracking, sets, reps, and timer.\n• Built-in exercise library and custom routines.\n• Streak tracking, nutrition logging, and charts.',
                 ),
                 const SizedBox(height: 12),
                 _buildInfoBlock(
-                  icon: Icons.tips_and_updates_outlined,
+                  icon: Icons.refresh_rounded,
                   color: Colors.teal,
-                  title: 'Next Steps',
+                  title: 'Catalog Updates',
                   description:
-                      '1. Continue using the app.\n2. Check your Wi-Fi or cellular network.\n3. Tap "Retry Sync" once connection is restored.',
+                      'Check your internet connection and tap "Retry Library Sync" if you want to check for new exercises or foods from the shared catalog.',
                 ),
               ],
             ),
@@ -77,7 +77,7 @@ class _CloudSyncBannerState extends State<CloudSyncBanner> {
             ),
             FilledButton.icon(
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Retry Sync'),
+              label: const Text('Retry Library Sync'),
               onPressed: () {
                 Navigator.of(ctx).pop();
                 widget.syncService?.initializeAndSync();
@@ -167,7 +167,7 @@ class _CloudSyncBannerState extends State<CloudSyncBanner> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Offline Mode',
+                      'Exercise Catalog Offline',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 12.5,
@@ -175,7 +175,7 @@ class _CloudSyncBannerState extends State<CloudSyncBanner> {
                       ),
                     ),
                     Text(
-                      'Cloud server unreachable. Your data is stored safely on this device.',
+                      'Cannot reach online exercise library. Personal data is 100% private and stored locally.',
                       style: TextStyle(
                         fontSize: 11,
                         color: isDark ? Colors.white70 : Colors.black87,

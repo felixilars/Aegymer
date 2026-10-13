@@ -29,11 +29,11 @@ class NutritionService {
   double calculateTargetCalories({
     required double tdee,
     required String goal,
-  })
-  {
-    if (goal == 'lose') {
+  }) {
+    final g = goal.toLowerCase().trim();
+    if (g.contains('lose')) {
       return tdee - 500; // 500 calorie deficit for weight loss
-    } else if (goal == 'gain') {
+    } else if (g.contains('gain')) {
       return tdee + 300; // 300 calorie surplus for weight gain
     } else {
       return tdee; // maintain weight

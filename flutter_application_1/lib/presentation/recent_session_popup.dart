@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
-import 'package:flutter_application_1/models/exercises_with_sets.dart';
-import 'package:flutter_application_1/core/databases/app_database.dart';
+import 'package:aegymer/models/exercises_with_sets.dart';
+import 'package:aegymer/core/databases/app_database.dart';
 
 class RecentSessionPopup extends StatefulWidget {
   final WorkoutSession session;

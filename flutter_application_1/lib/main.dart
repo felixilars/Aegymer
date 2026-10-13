@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
-import 'package:flutter_application_1/core/services/sync_service.dart';
+import 'package:aegymer/presentation/screen/Home_and_Main/MainPage.dart';
+import 'package:aegymer/core/services/sync_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/helper/check_firsttime.dart';
-import 'package:flutter_application_1/core/theme/app_theme.dart';
-import 'package:flutter_application_1/presentation/screen/welcome_screen.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/helper/check_firsttime.dart';
+import 'package:aegymer/core/theme/app_theme.dart';
+import 'package:aegymer/presentation/screen/welcome_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

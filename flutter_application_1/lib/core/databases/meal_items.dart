@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
-import 'package:flutter_application_1/core/databases/user_meals.dart';
-import 'package:flutter_application_1/core/databases/food.dart';
+import 'package:aegymer/core/databases/user_meals.dart';
+import 'package:aegymer/core/databases/food.dart';
 
 class MealItems extends Table {
   TextColumn get id => text()();

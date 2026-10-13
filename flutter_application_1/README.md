@@ -1,6 +1,6 @@
-# flutter_application_1
+# Aegymer
 
-A new Flutter project.
+Aegymer fitness & workout tracking application.
 
 ## Getting Started
 

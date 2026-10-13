@@ -1,4 +1,4 @@
-import 'package:flutter_application_1/core/enums/food_category.dart';
+import 'package:aegymer/core/enums/food_category.dart';
 
 class FoodCategoryClassifier {
   static const _dairy = [

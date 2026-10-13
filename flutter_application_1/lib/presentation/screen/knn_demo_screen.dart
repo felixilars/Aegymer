@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/services/autoregulation_service.dart';
+import 'package:aegymer/core/services/autoregulation_service.dart';
 
 class KnnDemoScreen extends StatefulWidget {
   const KnnDemoScreen({super.key});

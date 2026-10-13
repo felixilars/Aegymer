@@ -1,6 +1,6 @@
 
-import 'package:flutter_application_1/models/nutrition_macros.dart';
-import 'package:flutter_application_1/models/score_result.dart';
+import 'package:aegymer/models/nutrition_macros.dart';
+import 'package:aegymer/models/score_result.dart';
 
 
 

@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/presentation/AppBars/HomeAppBar.dart';
-import 'package:flutter_application_1/presentation/AppBars/RecordWorkoutAppBar.dart';
-import 'package:flutter_application_1/presentation/screen/Home_and_Main/homepage.dart';
-import 'package:flutter_application_1/presentation/screen/MealPrep/meal_prep_page.dart';
-import 'package:flutter_application_1/presentation/screen/UserProfile/profile_page.dart';
-import 'package:flutter_application_1/presentation/screen/workout_launcher_screen.dart';
-import 'package:flutter_application_1/presentation/screen/workout_progress_screen.dart';
-import 'package:flutter_application_1/core/databases/app_database.dart';
+import 'package:aegymer/presentation/AppBars/HomeAppBar.dart';
+import 'package:aegymer/presentation/AppBars/RecordWorkoutAppBar.dart';
+import 'package:aegymer/presentation/screen/Home_and_Main/homepage.dart';
+import 'package:aegymer/presentation/screen/MealPrep/meal_prep_page.dart';
+import 'package:aegymer/presentation/screen/UserProfile/profile_page.dart';
+import 'package:aegymer/presentation/screen/workout_launcher_screen.dart';
+import 'package:aegymer/presentation/screen/workout_progress_screen.dart';
+import 'package:aegymer/core/databases/app_database.dart';
 
-import 'package:flutter_application_1/presentation/widgets/cloud_sync_banner.dart';
-import 'package:flutter_application_1/core/services/sync_service.dart';
+import 'package:aegymer/presentation/widgets/cloud_sync_banner.dart';
+import 'package:aegymer/core/services/sync_service.dart';
+import 'package:aegymer/core/services/streak_service.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -84,6 +85,9 @@ class _MainPageState extends State<MainPage> {
           setState(() {
             _selectedIndex = index;
           });
+          if (index == 0) {
+            StreakService.notifyWorkoutUpdated();
+          }
         },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home), label: "Home"),

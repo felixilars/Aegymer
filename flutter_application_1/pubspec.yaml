@@ -1,5 +1,5 @@
-name: flutter_application_1
-description: "A new Flutter project."
+name: aegymer
+description: "Aegymer fitness application."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -55,6 +55,9 @@ dependencies:
 
   #Check if it is the first time user open app 
   shared_preferences: ^2.2.2
+
+  # Launch external URLs (web browser search)
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

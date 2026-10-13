@@ -1,6 +1,6 @@
 import 'dart:math';
-import 'package:flutter_application_1/core/services/knn_service.dart';
-import 'package:flutter_application_1/core/utils/workout_cal.dart';
+import 'package:aegymer/core/services/knn_service.dart';
+import 'package:aegymer/core/utils/workout_cal.dart';
 
 class ExerciseSessionHistory {
   final DateTime date;

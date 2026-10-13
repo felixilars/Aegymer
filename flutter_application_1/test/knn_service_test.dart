@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_application_1/core/services/knn_service.dart';
+import 'package:aegymer/core/services/knn_service.dart';
 
 void main() {
   group('KNearestNeighborsService', () {

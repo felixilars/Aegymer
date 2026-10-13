@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/core/services/nutrition_service.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/core/services/nutrition_service.dart';
 
 class ProfilePage extends StatefulWidget {
   final AppDatabase db;

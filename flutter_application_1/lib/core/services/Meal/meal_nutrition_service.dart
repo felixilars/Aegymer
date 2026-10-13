@@ -1,6 +1,6 @@
-import 'package:flutter_application_1/models/nutrition_macros.dart';
-import 'package:flutter_application_1/core/repositories/MealRepository.dart';
-import 'package:flutter_application_1/core/repositories/UserRepository.dart';
+import 'package:aegymer/models/nutrition_macros.dart';
+import 'package:aegymer/core/repositories/MealRepository.dart';
+import 'package:aegymer/core/repositories/UserRepository.dart';
 
 
 class MealNutritionService {

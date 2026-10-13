@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_application_1/presentation/welcome_page.dart';
+import 'package:aegymer/presentation/welcome_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

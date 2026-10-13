@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_application_1/helper/check_firsttime.dart';
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/presentation/screen/Home_and_Main/MainPage.dart';
-import 'package:flutter_application_1/core/services/food/nutrition_service.dart';
-import 'package:flutter_application_1/models/nutrition_macros.dart';
+import 'package:aegymer/helper/check_firsttime.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/presentation/screen/Home_and_Main/MainPage.dart';
+import 'package:aegymer/core/services/food/nutrition_service.dart';
+import 'package:aegymer/models/nutrition_macros.dart';
 import 'package:drift/drift.dart' as drift;
 
 class WelcomePage extends StatefulWidget {

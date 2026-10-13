@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/services/sync_service.dart';
+import 'package:aegymer/core/services/sync_service.dart';
 
 class CloudSyncBanner extends StatefulWidget {
   final SyncService? syncService;

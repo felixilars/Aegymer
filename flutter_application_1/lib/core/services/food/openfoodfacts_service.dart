@@ -1,5 +1,5 @@
-import 'package:flutter_application_1/models/ingredient.dart';
-import 'package:flutter_application_1/core/services/food/classifier/openfoodfacts_classifier.dart';
+import 'package:aegymer/models/ingredient.dart';
+import 'package:aegymer/core/services/food/classifier/openfoodfacts_classifier.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 

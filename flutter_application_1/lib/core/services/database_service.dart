@@ -1,4 +1,4 @@
-import 'package:flutter_application_1/core/databases/app_database.dart';
+import 'package:aegymer/core/databases/app_database.dart';
 
 class DatabaseService {
   DatabaseService._internal();

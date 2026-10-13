@@ -1,10 +1,10 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/presentation/screen/Home_and_Main/homepage.dart';
-import 'package:flutter_application_1/presentation/screen/MealPrep/meal_prep_page.dart';
-import 'package:flutter_application_1/presentation/screen/workout_launcher_screen.dart';
-import 'package:flutter_application_1/presentation/screen/workout_progress_screen.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/presentation/screen/Home_and_Main/homepage.dart';
+import 'package:aegymer/presentation/screen/MealPrep/meal_prep_page.dart';
+import 'package:aegymer/presentation/screen/workout_launcher_screen.dart';
+import 'package:aegymer/presentation/screen/workout_progress_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

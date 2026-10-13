@@ -1,9 +1,9 @@
 import 'dart:math';
 
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/core/services/Meal/amount/amount_calculator.dart';
-import 'package:flutter_application_1/models/mealRec_helper/amount_recommendation.dart';
-import 'package:flutter_application_1/models/nutrition_macros.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/core/services/Meal/amount/amount_calculator.dart';
+import 'package:aegymer/models/mealRec_helper/amount_recommendation.dart';
+import 'package:aegymer/models/nutrition_macros.dart';
 
 class ProportionalAmountCalculator implements AmountCalculator {
   static const double minGrams = 30;

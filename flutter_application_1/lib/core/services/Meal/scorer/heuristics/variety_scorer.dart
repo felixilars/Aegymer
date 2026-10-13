@@ -1,5 +1,5 @@
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/models/score_result.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/models/score_result.dart';
 
 
 

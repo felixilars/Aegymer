@@ -2,15 +2,15 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:flutter_application_1/core/databases/user_profile.dart';
-import 'package:flutter_application_1/core/databases/workout_sessions.dart';
-import 'package:flutter_application_1/core/databases/workout_sets.dart';
-import 'package:flutter_application_1/core/databases/user_meals.dart';
-import 'package:flutter_application_1/core/databases/exercises.dart';
-import 'package:flutter_application_1/core/databases/food.dart';
-import 'package:flutter_application_1/core/databases/routines.dart';
-import 'package:flutter_application_1/core/databases/routine_exercises.dart';
-import 'package:flutter_application_1/core/databases/meal_items.dart';
+import 'package:aegymer/core/databases/user_profile.dart';
+import 'package:aegymer/core/databases/workout_sessions.dart';
+import 'package:aegymer/core/databases/workout_sets.dart';
+import 'package:aegymer/core/databases/user_meals.dart';
+import 'package:aegymer/core/databases/exercises.dart';
+import 'package:aegymer/core/databases/food.dart';
+import 'package:aegymer/core/databases/routines.dart';
+import 'package:aegymer/core/databases/routine_exercises.dart';
+import 'package:aegymer/core/databases/meal_items.dart';
 
 part 'app_database.g.dart';
 

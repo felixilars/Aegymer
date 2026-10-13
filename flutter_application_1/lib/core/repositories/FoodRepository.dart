@@ -1,8 +1,8 @@
-import "package:flutter_application_1/core/databases/app_database.dart";
+import "package:aegymer/core/databases/app_database.dart";
 import 'package:drift/drift.dart';
-import "package:flutter_application_1/core/services/food/openfoodfacts_service.dart";
-import "package:flutter_application_1/core/enums/meal_context.dart";
-import "package:flutter_application_1/core/enums/food_category.dart";
+import "package:aegymer/core/services/food/openfoodfacts_service.dart";
+import "package:aegymer/core/enums/meal_context.dart";
+import "package:aegymer/core/enums/food_category.dart";
 
 
 class FoodRepository {

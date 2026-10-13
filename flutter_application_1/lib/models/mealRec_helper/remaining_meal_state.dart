@@ -1,4 +1,4 @@
-import 'package:flutter_application_1/models/nutrition_macros.dart';
+import 'package:aegymer/models/nutrition_macros.dart';
 
 class RemainingMealState {
   final NutritionMacros target;

@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/core/constants/default_seed_exercises.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/core/constants/default_seed_exercises.dart';
 
 enum CloudConnectionStatus {
   idle,

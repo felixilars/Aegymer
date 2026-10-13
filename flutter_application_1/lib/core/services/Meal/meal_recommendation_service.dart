@@ -1,14 +1,14 @@
-import 'package:flutter_application_1/core/enums/meal_context.dart';
-import 'package:flutter_application_1/core/repositories/FoodRepository.dart';
-import 'package:flutter_application_1/core/repositories/MealRepository.dart';
-import 'package:flutter_application_1/core/repositories/UserRepository.dart';
-import 'package:flutter_application_1/core/services/Meal/amount/amount_calculator.dart';
-import 'package:flutter_application_1/models/mealRec_helper/meal_recommendation.dart';
-import 'package:flutter_application_1/models/mealRec_helper/remaining_meal_state.dart';
-import 'package:flutter_application_1/core/services/Meal/scorer/scorer.dart';
-import 'package:flutter_application_1/models/mealitem_with_food.dart';
-import 'package:flutter_application_1/models/nutrition_macros.dart';
-import 'package:flutter_application_1/core/databases/app_database.dart';
+import 'package:aegymer/core/enums/meal_context.dart';
+import 'package:aegymer/core/repositories/FoodRepository.dart';
+import 'package:aegymer/core/repositories/MealRepository.dart';
+import 'package:aegymer/core/repositories/UserRepository.dart';
+import 'package:aegymer/core/services/Meal/amount/amount_calculator.dart';
+import 'package:aegymer/models/mealRec_helper/meal_recommendation.dart';
+import 'package:aegymer/models/mealRec_helper/remaining_meal_state.dart';
+import 'package:aegymer/core/services/Meal/scorer/scorer.dart';
+import 'package:aegymer/models/mealitem_with_food.dart';
+import 'package:aegymer/models/nutrition_macros.dart';
+import 'package:aegymer/core/databases/app_database.dart';
 
 class MealRecommendationService {
   MealRecommendationService(

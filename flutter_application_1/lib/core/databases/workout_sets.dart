@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
-import 'package:flutter_application_1/core/databases/exercises.dart';
-import 'package:flutter_application_1/core/databases/workout_sessions.dart';
+import 'package:aegymer/core/databases/exercises.dart';
+import 'package:aegymer/core/databases/workout_sessions.dart';
 
 
 

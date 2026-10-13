@@ -1,11 +1,11 @@
 
-import 'package:flutter_application_1/core/databases/app_database.dart';
-import 'package:flutter_application_1/models/mealRec_helper/amount_recommendation.dart';
-import 'package:flutter_application_1/models/nutrition_macros.dart';
-import 'package:flutter_application_1/models/score_result.dart';
-import 'package:flutter_application_1/core/services/Meal/scorer/heuristics/food_calories_scorer.dart';
-import 'package:flutter_application_1/core/services/Meal/scorer/heuristics/food_macro_scorer.dart';
-import 'package:flutter_application_1/core/services/Meal/scorer/heuristics/variety_scorer.dart';
+import 'package:aegymer/core/databases/app_database.dart';
+import 'package:aegymer/models/mealRec_helper/amount_recommendation.dart';
+import 'package:aegymer/models/nutrition_macros.dart';
+import 'package:aegymer/models/score_result.dart';
+import 'package:aegymer/core/services/Meal/scorer/heuristics/food_calories_scorer.dart';
+import 'package:aegymer/core/services/Meal/scorer/heuristics/food_macro_scorer.dart';
+import 'package:aegymer/core/services/Meal/scorer/heuristics/variety_scorer.dart';
 
 class Scorer {
   static const double macroWeight = 0.45;

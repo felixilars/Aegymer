@@ -356,6 +356,161 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     });
   }
 
+  void _removeExerciseFromSession(Exercise ex) {
+    final sets = _exerciseSets[ex.id] ?? [];
+    final bool hasData = sets.any((s) =>
+        (double.tryParse(s.weightController.text) ?? 0.0) > 0 ||
+        (int.tryParse(s.repsController.text) ?? 0) > 0 ||
+        (double.tryParse(s.distanceController.text) ?? 0.0) > 0 ||
+        s.durationInSeconds > 0);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Remove "${ex.name}"?'),
+        content: Text(
+          hasData
+              ? 'Are you sure you want to remove "${ex.name}" from this workout? All entered sets and progress for this exercise will be discarded.'
+              : 'Are you sure you want to remove "${ex.name}" from this workout session?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _performRemoveExercise(ex);
+            },
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _performRemoveExercise(Exercise ex) {
+    final indexToRemove = _sessionExercises.indexWhere((e) => e.id == ex.id);
+    if (indexToRemove == -1) return;
+
+    setState(() {
+      final sets = _exerciseSets.remove(ex.id) ?? [];
+      for (final s in sets) {
+        s.dispose();
+      }
+      _barbellWeightControllers.remove(ex.id)?.dispose();
+      _bodyweightControllers.remove(ex.id)?.dispose();
+      _useBarbell.remove(ex.id);
+      _barbellWeight.remove(ex.id);
+      _exerciseBodyweight.remove(ex.id);
+      _exerciseStopwatchSeconds.remove(ex.id);
+      _exerciseStopwatchRunning.remove(ex.id);
+      _activeTrackingTypes.remove(ex.id);
+      _sessionExercises.removeAt(indexToRemove);
+
+      if (_sessionExercises.isEmpty) {
+        _currentPageIndex = 0;
+      } else if (_currentPageIndex >= _sessionExercises.length) {
+        _currentPageIndex = _sessionExercises.length - 1;
+      }
+    });
+
+    if (_sessionExercises.isNotEmpty && _pageController.hasClients) {
+      _pageController.jumpToPage(_currentPageIndex);
+      _scrollToHeaderIndicator(_currentPageIndex);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Removed "${ex.name}" from workout.'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _replaceExerciseInSession(Exercise currentEx) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.0)),
+      ),
+      builder: (context) {
+        return _AddExerciseSheet(
+          allExercises: _allAvailableExercises,
+          currentSessionExercises: _sessionExercises,
+          sheetTitle: 'Replace "${currentEx.name}"',
+          onExerciseAdded: (newEx) {
+            _performReplaceExercise(currentEx, newEx);
+          },
+          onExerciseRemoved: (ex) {
+            _performRemoveExercise(ex);
+          },
+          db: widget.db,
+        );
+      },
+    );
+  }
+
+  void _performReplaceExercise(Exercise oldEx, Exercise newEx) {
+    if (oldEx.id == newEx.id) return;
+    final index = _sessionExercises.indexWhere((e) => e.id == oldEx.id);
+    if (index == -1) return;
+
+    if (_sessionExercises.any((e) => e.id == newEx.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"${newEx.name}" is already in this workout session.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      final sets = _exerciseSets.remove(oldEx.id) ?? [];
+      for (final s in sets) {
+        s.dispose();
+      }
+      _barbellWeightControllers.remove(oldEx.id)?.dispose();
+      _bodyweightControllers.remove(oldEx.id)?.dispose();
+      _useBarbell.remove(oldEx.id);
+      _barbellWeight.remove(oldEx.id);
+      _exerciseBodyweight.remove(oldEx.id);
+      _exerciseStopwatchSeconds.remove(oldEx.id);
+      _exerciseStopwatchRunning.remove(oldEx.id);
+      _activeTrackingTypes.remove(oldEx.id);
+
+      _sessionExercises[index] = newEx;
+      final initialType = WorkoutCalculator.normalizeTrackingType(
+        newEx.trackingType,
+        name: newEx.name,
+        targetMuscle: newEx.targetMuscle,
+        equipment: newEx.equipment,
+      );
+      _activeTrackingTypes[newEx.id] = initialType;
+      _initSetsForExercise(newEx);
+      _currentPageIndex = index;
+    });
+
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(_currentPageIndex);
+      _scrollToHeaderIndicator(_currentPageIndex);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Replaced "${oldEx.name}" with "${newEx.name}".'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<void> _finishWorkout() async {
     // Collect all sets that are completed
     final List<WorkoutSetsCompanion> setsCompanions = [];
@@ -980,7 +1135,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title & Google Search Help Button
+          // Title & Action Buttons
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1013,6 +1168,16 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                   context,
                   ex.name,
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.swap_horiz_rounded, color: Colors.blue),
+                tooltip: 'Replace Exercise',
+                onPressed: () => _replaceExerciseInSession(ex),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                tooltip: 'Remove Exercise from Workout',
+                onPressed: () => _removeExerciseFromSession(ex),
               ),
             ],
           ),
@@ -1209,6 +1374,23 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               contentPadding: const EdgeInsets.all(12),
             ),
           ),
+          const SizedBox(height: 20.0),
+          Center(
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                side: const BorderSide(color: Colors.red),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              onPressed: () => _removeExerciseFromSession(ex),
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('Remove Exercise from Workout'),
+            ),
+          ),
+          const SizedBox(height: 32.0),
         ],
       ),
     );
@@ -2100,6 +2282,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               }
             });
           },
+          onExerciseRemoved: (ex) {
+            _performRemoveExercise(ex);
+          },
           db: widget.db,
         );
       },
@@ -2111,12 +2296,16 @@ class _AddExerciseSheet extends StatefulWidget {
   final List<Exercise> allExercises;
   final List<Exercise> currentSessionExercises;
   final Function(Exercise) onExerciseAdded;
+  final Function(Exercise)? onExerciseRemoved;
+  final String? sheetTitle;
   final AppDatabase db;
 
   const _AddExerciseSheet({
     required this.allExercises,
     required this.currentSessionExercises,
     required this.onExerciseAdded,
+    this.onExerciseRemoved,
+    this.sheetTitle,
     required this.db,
   });
 
@@ -2361,6 +2550,50 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
     }
   }
 
+  Future<void> _confirmDeleteCustomExercise(Exercise ex) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete "${ex.name}"?'),
+        content: const Text(
+          'This will permanently delete this custom exercise from your library.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await (widget.db.delete(widget.db.exercises)
+            ..where((tbl) => tbl.id.equals(ex.id)))
+          .go();
+      setState(() {
+        _filteredExercises.removeWhere((e) => e.id == ex.id);
+        widget.allExercises.removeWhere((e) => e.id == ex.id);
+      });
+      if (widget.currentSessionExercises.any((e) => e.id == ex.id)) {
+        widget.onExerciseRemoved?.call(ex);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Deleted "${ex.name}" from library.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2408,9 +2641,9 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Add Exercise to Session',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  Text(
+                    widget.sheetTitle ?? 'Add Exercise to Session',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   TextButton.icon(
                     onPressed: _createNewCustomExercise,
@@ -2519,17 +2752,47 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
                                     ex.name,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  isAlreadyAdded
-                                      ? Icons.done
-                                      : Icons.add_circle_outline,
-                                  color: isAlreadyAdded ? Colors.green : null,
-                                ),
+                                if (ex.isCustom)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.redAccent,
+                                      size: 20,
+                                    ),
+                                    tooltip: 'Delete custom exercise',
+                                    onPressed: () =>
+                                        _confirmDeleteCustomExercise(ex),
+                                  ),
+                                if (isAlreadyAdded &&
+                                    widget.onExerciseRemoved != null)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.remove_circle_outline,
+                                      color: Colors.red,
+                                      size: 22,
+                                    ),
+                                    tooltip: 'Remove from session',
+                                    onPressed: () {
+                                      widget.onExerciseRemoved!(ex);
+                                      setState(() {});
+                                    },
+                                  )
+                                else
+                                  Icon(
+                                    isAlreadyAdded
+                                        ? Icons.done
+                                        : Icons.add_circle_outline,
+                                    color: isAlreadyAdded ? Colors.green : null,
+                                  ),
                               ],
                             ),
                             onTap: isAlreadyAdded
-                                ? null
+                                ? () {
+                                    if (widget.onExerciseRemoved != null) {
+                                      widget.onExerciseRemoved!(ex);
+                                      setState(() {});
+                                    }
+                                  }
                                 : () {
                                     widget.onExerciseAdded(ex);
                                     Navigator.of(context).pop();

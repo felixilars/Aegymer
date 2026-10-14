@@ -5,7 +5,8 @@
     <application
         android:label="Aegymer"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher1">
+        android:icon="@mipmap/ic_launcher1"
+        android:allowBackup="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"

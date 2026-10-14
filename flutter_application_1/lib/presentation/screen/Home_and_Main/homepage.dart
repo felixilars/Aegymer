@@ -4,7 +4,6 @@ import 'package:drift/drift.dart' as drift;
 import 'package:aegymer/core/databases/app_database.dart';
 import 'package:aegymer/core/services/streak_service.dart';
 import 'package:aegymer/presentation/recent_session_popup.dart';
-import 'package:aegymer/presentation/screen/workout_launcher_screen.dart';
 import 'package:aegymer/presentation/widgets/streak_detail_sheet.dart';
 import 'package:aegymer/presentation/screen/workout_progress_screen.dart';
 

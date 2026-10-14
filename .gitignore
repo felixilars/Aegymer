@@ -11,6 +11,9 @@ Thumbs.db
 *.ipr
 *.iws
 
+# Local SDK directory
+flutter/
+
 # Project temporary & context files
 CONTEXT.md
 tmp*

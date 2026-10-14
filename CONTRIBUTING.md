@@ -1,147 +1,69 @@
 # Contributing to Aegymer
 
-Thank you for your interest in contributing to Aegymer! We welcome contributions ranging from bug fixes and feature implementations to documentation improvements and translations.
+Thanks for helping improve Aegymer. GitHub is the project's source of truth for issues, pull requests, branches, and releases.
 
-Please take a moment to review this guide before submitting code or opening issues.
+## Before you start
 
----
+Read the [README](README.md), search the existing GitHub issues, and avoid opening a duplicate. Discuss a change before doing substantial work when its scope is unclear.
 
-## Table of Contents
+### Creating and attributing issues
 
-- [Code of Conduct](#code-of-conduct)
-- [How to Contribute](#how-to-contribute)
-  - [Reporting Bugs](#reporting-bugs)
-  - [Suggesting Features](#suggesting-features)
-  - [Pull Requests](#pull-requests)
-- [Development Setup](#development-setup)
-- [Branch & Commit Conventions](#branch--commit-conventions)
-- [Coding Guidelines](#coding-guidelines)
-- [License](#license)
+Create issues on [GitHub](https://github.com/felixilars/Aegymer/issues). Use one issue for one outcome and give it a concise, searchable title.
 
----
+- For a bug, include the app version, device and platform, steps to reproduce, expected behaviour, actual behaviour, and any useful logs or screenshots.
+- For a feature, explain the problem, the intended result, and clear acceptance criteria.
+- Do not include personal metrics, private notes, or sensitive user data.
+- The issue author is credited automatically. If someone else reports or contributes the work, acknowledge them in the issue or pull request.
+- Ask to be assigned in a comment before starting work on an unassigned issue. Do not take over work already assigned to someone else without agreement.
 
-## Code of Conduct
+## Branches and commits
 
-Please help us maintain a respectful and welcoming environment for everyone. Treat all contributors and users with kindness, empathy, and constructive feedback.
+Start from an up-to-date `main` branch and create one branch per issue:
 
----
-
-## How to Contribute
-
-### Reporting Bugs
-
-Before creating a new bug report, search the [existing issues](https://github.com/felixilars/Aegymer/issues) to verify if the problem has already been reported.
-
-When opening a new issue, please include:
-1. **Clear description**: What happened vs. what was expected to happen.
-2. **Steps to reproduce**: Minimal, numbered steps showing how to trigger the bug.
-3. **Environment details**:
-   - Device model & Android / OS version
-   - Flutter and Dart version (`flutter --version`)
-   - App version / commit hash
-4. **Logs or Screenshots**: Relevant console output or visual recordings demonstrating the behavior.
-
-### Suggesting Features
-
-We welcome ideas for improving training tracking, nutrition heuristics, and UI responsiveness. When submitting a feature request:
-- Clearly explain the problem or motivation.
-- Describe the proposed solution and how it benefits users.
-- Provide mockups, sketches, or reference apps if applicable.
-
----
-
-## Development Setup
-
-1. **Fork and clone the repository:**
-   ```bash
-   git clone https://github.com/<your-username>/Aegymer.git
-   cd Aegymer/flutter_application_1
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   flutter pub get
-   ```
-
-3. **Database code generation (Drift):**
-   If you modify any database schemas in `lib/core/databases/`, regenerate the Drift companion files:
-   ```bash
-   dart run build_runner build --delete-conflicting-outputs
-   ```
-
-4. **Run the app locally:**
-   ```bash
-   flutter run
-   ```
-
-5. **Run test suite:**
-   ```bash
-   flutter test
-   ```
-
----
-
-## Branch & Commit Conventions
-
-### Branch Naming
-
-Create feature branches off `main` using descriptive prefixes:
-- `feat/workout-plate-calculator`
-- `fix/streak-recalculation-bug`
-- `docs/update-contributing-guide`
-- `refactor/nutrition-service-cleanup`
-
-### Commit Messages
-
-We follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-<type>(<scope>): <short description>
+```bash
+git switch main
+git pull origin main
+git switch -c feature/12-documentation
 ```
 
-Common types:
-- `feat`: A new feature or user-facing improvement
-- `fix`: A bug fix
-- `docs`: Documentation updates
-- `refactor`: Code refactoring without changing behavior
-- `test`: Adding or updating unit/widget tests
-- `chore`: Build scripts, dependencies, or tool configurations
+Use lowercase, hyphen-separated branch names in this format:
 
-*Examples:*
-- `feat(workout): add autoregulation deload indicator`
-- `fix(history): prevent race condition on session deletion`
-- `docs(readme): add on-device machine learning section`
+```text
+<type>/<issue-number>-<short-description>
+```
 
----
+Use `feature`, `fix`, `docs`, `refactor`, `test`, `chore`, or `ci` as the type. For example, `fix/42-streak-recalculation` and `docs/12-contributing-guide`.
 
-## Coding Guidelines
+Write focused commits using the Conventional Commits style:
 
-1. **Architecture & State Management**:
-   - Keep business logic in `core/services/` and repositories in `core/repositories/`.
-   - UI widgets in `presentation/` should remain decoupled from direct database queries whenever possible.
-2. **Offline-First Principle**:
-   - Never introduce mandatory cloud dependencies that break core workout and nutrition logging when offline.
-3. **Data Integrity & Preserving Comments**:
-   - Preserve existing documentation and comments.
-   - When altering SQLite schemas in `app_database.dart`, always implement an `onUpgrade` migration step to prevent wiping existing user data.
-4. **Code Quality**:
-   - Follow standard Dart style conventions (`dart format .`).
-   - Ensure the code passes `flutter test` cleanly before opening a pull request.
+```text
+<type>(<scope>): <imperative summary>
+```
 
----
+Examples:
 
-## Pull Request Checklist
+```text
+feat(workout): add auto-save draft recovery
+fix(history): handle empty session deletion
+docs(contributing): document GitHub contribution workflow
+```
 
-Before submitting a Pull Request, please ensure:
+Keep the summary short, use the imperative mood, and do not end it with a period. Add `Closes #12` to the pull request description when the change resolves an issue.
 
-- [ ] Your code compiles cleanly without fatal warnings.
-- [ ] Tests pass (`flutter test`).
-- [ ] If changing database schemas, `schemaVersion` is incremented and an `onUpgrade` migration is added.
-- [ ] Commits follow Conventional Commits formatting.
-- [ ] The PR description clearly explains the changes and references any related issue (e.g., `Closes #12`).
+## Pull requests and merges
 
----
+Open pull requests on GitHub with `main` as the target branch. A pull request must cover one issue or coherent change, explain what changed, list validation performed, and link the related issue.
 
-## License
+Before requesting review:
 
-By contributing to Aegymer, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+- Rebase or merge the latest `main` when needed and resolve conflicts locally.
+- Run the relevant checks: `flutter test` inside `flutter_application_1`.
+- If modifying database schemas in `lib/core/databases/`, run `dart run build_runner build --delete-conflicting-outputs` to regenerate Drift files, increment `schemaVersion`, and add an `onUpgrade` migration step.
+- Keep generated build artifacts (`build/`), credentials (`key.properties`), signing keys (`*.jks`), and personal data out of commits.
+
+Do not push directly to `main` or force-push a shared branch. A maintainer must approve the pull request and automated checks must pass before it is merged. Use squash merge for a small, single-purpose pull request. Preserve separate commits only when each one is meaningful on its own.
+
+## Development guidelines
+
+- **Offline-First**: All workout logging, nutritional calculations, and machine learning autoregulation must function without an internet connection. Do not introduce mandatory cloud account requirements.
+- **Data Integrity**: User workout history and profile records are sacred. Never drop tables or delete local SQLite records during database schema upgrades.

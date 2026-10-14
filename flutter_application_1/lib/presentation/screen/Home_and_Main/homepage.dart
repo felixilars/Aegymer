@@ -6,6 +6,10 @@ import 'package:aegymer/core/services/streak_service.dart';
 import 'package:aegymer/presentation/recent_session_popup.dart';
 import 'package:aegymer/presentation/widgets/streak_detail_sheet.dart';
 import 'package:aegymer/presentation/screen/workout_progress_screen.dart';
+import 'package:aegymer/presentation/screen/workout_history_screen.dart';
+import 'package:aegymer/presentation/screen/edit_workout_session_screen.dart';
+import 'package:aegymer/presentation/screen/active_workout_screen.dart';
+import 'package:aegymer/core/services/workout_draft_service.dart';
 
 const backgroundColor = Color(0xffF5F7FA);
 const cardColor = Colors.white;
@@ -36,6 +40,8 @@ class _HomepageState extends State<Homepage> {
   StreakSummary? _streakSummary;
   bool _loadingStreak = true;
 
+  Map<String, dynamic>? _activeDraft;
+
   @override
   void initState() {
     super.initState();
@@ -56,10 +62,18 @@ class _HomepageState extends State<Homepage> {
       _loadingStreak = true;
     });
 
+    final draft = await WorkoutDraftService.getDraft();
+
     await Future.wait([
       _loadRecentSessions(),
       _loadStreakData(),
     ]);
+
+    if (mounted) {
+      setState(() {
+        _activeDraft = draft;
+      });
+    }
   }
 
   Future<void> _refreshPage() async {
@@ -90,6 +104,124 @@ class _HomepageState extends State<Homepage> {
       _streakSummary = summary;
       _loadingStreak = false;
     });
+  }
+
+  Future<void> _openEditSession(WorkoutSession session) async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => EditWorkoutSessionScreen(
+          db: widget.db,
+          session: session,
+        ),
+      ),
+    );
+    if (updated == true && mounted) {
+      _loadAllData();
+    }
+  }
+
+  Future<void> _confirmDeleteSession(WorkoutSession session) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Workout?'),
+        content: const Text(
+          'Are you sure you want to delete this workout session? All logged sets will be removed and streaks will be updated.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      await widget.db.deleteWorkoutSession(session.id);
+      StreakService.notifyWorkoutUpdated();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Workout session deleted.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _resumeActiveDraft() async {
+    if (_activeDraft == null) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ActiveWorkoutScreen(
+          db: widget.db,
+          restoredDraft: _activeDraft,
+        ),
+      ),
+    );
+    await _loadAllData();
+  }
+
+  Future<void> _finishAndSaveDraftDirectly() async {
+    if (_activeDraft == null) return;
+    final success = await WorkoutDraftService.finishAndSaveDraft(widget.db, _activeDraft!);
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unfinished workout saved to history successfully.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      await _loadAllData();
+    }
+  }
+
+  Future<void> _confirmDiscardDraft() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Discard Unfinished Workout?'),
+        content: const Text(
+          'Are you sure you want to discard this workout? All sets and progress logged during this session will be permanently deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      await WorkoutDraftService.clearDraft();
+      setState(() {
+        _activeDraft = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Workout draft discarded.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _showSetGoalDialog() async {
@@ -203,6 +335,10 @@ class _HomepageState extends State<Homepage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 24, top: 12),
           children: [
+            if (_activeDraft != null) ...[
+              _buildActiveDraftBanner(cardBg, txtCol, subTxtCol, isDark),
+              const SizedBox(height: 16),
+            ],
             SizedBox(
               height: 235,
               child: PageView(
@@ -250,17 +386,40 @@ class _HomepageState extends State<Homepage> {
                           color: txtCol,
                         ),
                       ),
-                      GestureDetector(
-                        onTap: widget.onRecordWorkout,
-                        child: const Text(
-                          'Start Workout',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: primaryColor,
-                            decoration: TextDecoration.underline,
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => WorkoutHistoryScreen(db: widget.db),
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'View All',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: primaryColor,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 14),
+                          GestureDetector(
+                            onTap: widget.onRecordWorkout,
+                            child: const Text(
+                              'Start',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: primaryColor,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -314,6 +473,128 @@ class _HomepageState extends State<Homepage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildActiveDraftBanner(Color cardBg, Color txtCol, Color subTxtCol, bool isDark) {
+    final draft = _activeDraft!;
+    final routineName = draft['routineName']?.toString() ?? 'Free Workout';
+    final rawExercises = draft['exercises'] as List<dynamic>? ?? [];
+    final setsData = draft['setsData'] as Map<String, dynamic>? ?? {};
+
+    int totalSets = 0;
+    for (final sets in setsData.values) {
+      if (sets is List) totalSets += sets.length;
+    }
+
+    final bannerBg = isDark ? const Color(0xFF2D1B00) : const Color(0xFFFFF7ED);
+    final bannerBorder = isDark ? Colors.amber.shade800.withValues(alpha: 0.5) : const Color(0xFFFFEDD5);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bannerBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: bannerBorder, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade700.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.bolt_rounded, color: Colors.amber.shade700, size: 22),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Unfinished Workout Session',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.amber.shade200 : const Color(0xFF9A3412),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$routineName • ${rawExercises.length} exercises, $totalSets sets logged',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: isDark ? Colors.white70 : const Color(0xFFC2410C),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: Icon(Icons.close_rounded, size: 18, color: subTxtCol),
+                tooltip: 'Discard draft',
+                onPressed: _confirmDiscardDraft,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _finishAndSaveDraftDirectly,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? Colors.amber.shade300 : const Color(0xFFC2410C),
+                    side: BorderSide(
+                      color: isDark ? Colors.amber.shade700 : const Color(0xFFFDBA74),
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  child: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Save to History',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _resumeActiveDraft,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: const Text(
+                    'Resume',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.amber.shade700,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -817,10 +1098,60 @@ class _HomepageState extends State<Homepage> {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: subTxtCol.withValues(alpha: 0.6),
-                  size: 22,
+                PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.more_vert_rounded,
+                    color: subTxtCol.withValues(alpha: 0.7),
+                    size: 20,
+                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  onSelected: (action) {
+                    if (action == 'view') {
+                      showDialog(
+                        context: context,
+                        builder: (context) => RecentSessionPopup(
+                          session: session,
+                          db: widget.db,
+                        ),
+                      );
+                    } else if (action == 'edit') {
+                      _openEditSession(session);
+                    } else if (action == 'delete') {
+                      _confirmDeleteSession(session);
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(
+                      value: 'view',
+                      child: Row(
+                        children: [
+                          Icon(Icons.visibility_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('View Details'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('Edit'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                          SizedBox(width: 8),
+                          Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:aegymer/core/databases/app_database.dart';
 import 'package:aegymer/core/utils/workout_cal.dart';
+import 'package:aegymer/core/services/streak_service.dart';
 
 class WorkoutProgressScreen extends StatefulWidget {
   final AppDatabase db;
@@ -32,6 +33,19 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
   void initState() {
     super.initState();
     _loadExercises();
+    StreakService.workoutUpdateNotifier.addListener(_onWorkoutUpdated);
+  }
+
+  @override
+  void dispose() {
+    StreakService.workoutUpdateNotifier.removeListener(_onWorkoutUpdated);
+    super.dispose();
+  }
+
+  void _onWorkoutUpdated() {
+    if (mounted) {
+      _loadExercises();
+    }
   }
 
   Future<void> _loadExercises() async {

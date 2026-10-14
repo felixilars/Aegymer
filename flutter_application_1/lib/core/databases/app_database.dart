@@ -113,6 +113,42 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  // Fetch a workout session by ID
+  Future<WorkoutSession?> getWorkoutSessionById(String sessionId) async {
+    return (select(workoutSessions)..where((tbl) => tbl.id.equals(sessionId))).getSingleOrNull();
+  }
+
+  // Delete workout session and its sets in a database transaction
+  Future<void> deleteWorkoutSession(String sessionId) async {
+    await transaction(() async {
+      await (delete(workoutSets)..where((tbl) => tbl.sessionId.equals(sessionId))).go();
+      await (delete(workoutSessions)..where((tbl) => tbl.id.equals(sessionId))).go();
+    });
+  }
+
+  // Update workout session and its sets in a database transaction
+  Future<void> updateWorkoutSession({
+    required String sessionId,
+    required DateTime date,
+    String? notes,
+    required List<WorkoutSetsCompanion> setsCompanions,
+  }) async {
+    await transaction(() async {
+      await (update(workoutSessions)..where((tbl) => tbl.id.equals(sessionId))).write(
+        WorkoutSessionsCompanion(
+          date: Value(date),
+          notes: Value(notes),
+        ),
+      );
+      await (delete(workoutSets)..where((tbl) => tbl.sessionId.equals(sessionId))).go();
+      if (setsCompanions.isNotEmpty) {
+        await batch((batch) {
+          batch.insertAll(workoutSets, setsCompanions);
+        });
+      }
+    });
+  }
+
   // Fetch routines along with their sorted exercises
   Future<List<RoutineWithExercises>> getRoutinesWithExercises() async {
     final routinesList = await select(routines).get();

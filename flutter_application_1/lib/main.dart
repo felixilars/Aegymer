@@ -9,8 +9,8 @@ import 'package:aegymer/presentation/screen/welcome_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final firstTimeFuture = CheckFirstTime.isFirstTime();
   final db = AppDatabase();
+  final firstTimeFuture = CheckFirstTime.isFirstTime(db);
   unawaited(SyncService(db).initializeAndSync());
 
   final isFirstTime = await firstTimeFuture;

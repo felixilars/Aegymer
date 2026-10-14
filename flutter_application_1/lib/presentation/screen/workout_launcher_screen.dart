@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:aegymer/core/databases/app_database.dart';
 import 'package:aegymer/presentation/screen/routine_editor_screen.dart';
 import 'package:aegymer/presentation/screen/active_workout_screen.dart';
+import 'package:aegymer/core/services/workout_draft_service.dart';
 
 class WorkoutLauncherScreen extends StatefulWidget {
   final AppDatabase db;
@@ -15,6 +16,7 @@ class WorkoutLauncherScreen extends StatefulWidget {
 class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
   List<RoutineWithExercises> _routines = [];
   bool _isLoading = true;
+  Map<String, dynamic>? _activeDraft;
 
   @override
   void initState() {
@@ -28,19 +30,272 @@ class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
     });
     try {
       final list = await widget.db.getRoutinesWithExercises();
-      setState(() {
-        _routines = list;
-      });
+      final draft = await WorkoutDraftService.getDraft();
+      if (mounted) {
+        setState(() {
+          _routines = list;
+          _activeDraft = draft;
+        });
+      }
     } catch (e) {
       debugPrint('Error loading routines: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  void _startFreeStyleWorkout() {
+  Future<bool> _checkExistingDraftBeforeStart() async {
+    final draft = await WorkoutDraftService.getDraft();
+    if (draft == null || !mounted) return true;
+
+    final routineName = draft['routineName']?.toString() ?? 'Free Workout';
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.bolt_rounded, color: Colors.amber),
+            SizedBox(width: 8),
+            Text('Active Workout Exists'),
+          ],
+        ),
+        content: Text(
+          'You have an unfinished workout ($routineName). Would you like to resume it or discard it and start a new one?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'cancel'),
+            child: const Text('Cancel'),
+          ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, 'new'),
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Discard & Start New'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'resume'),
+            child: const Text('Resume Workout'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == 'resume' && mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ActiveWorkoutScreen(
+            db: widget.db,
+            restoredDraft: draft,
+          ),
+        ),
+      );
+      _loadRoutines();
+      return false;
+    } else if (result == 'new') {
+      await WorkoutDraftService.clearDraft();
+      setState(() {
+        _activeDraft = null;
+      });
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _resumeActiveDraft() async {
+    if (_activeDraft == null) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ActiveWorkoutScreen(
+          db: widget.db,
+          restoredDraft: _activeDraft,
+        ),
+      ),
+    );
+    _loadRoutines();
+  }
+
+  Future<void> _finishAndSaveDraftDirectly() async {
+    if (_activeDraft == null) return;
+    final success = await WorkoutDraftService.finishAndSaveDraft(widget.db, _activeDraft!);
+    if (!mounted) return;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unfinished workout saved to history successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _loadRoutines();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save workout draft.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmDiscardDraft() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard Workout Draft?'),
+        content: const Text('This will delete all unsaved sets from your unfinished workout session.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await WorkoutDraftService.clearDraft();
+      if (mounted) {
+        setState(() {
+          _activeDraft = null;
+        });
+      }
+    }
+  }
+
+  Widget _buildActiveDraftBanner(bool isDark) {
+    if (_activeDraft == null) return const SizedBox.shrink();
+    final draft = _activeDraft!;
+    final routineName = draft['routineName']?.toString() ?? 'Free Workout';
+    final rawExercises = draft['exercises'] as List<dynamic>? ?? [];
+    final setsData = draft['setsData'] as Map<String, dynamic>? ?? {};
+
+    int totalSets = 0;
+    for (final sets in setsData.values) {
+      if (sets is List) totalSets += sets.length;
+    }
+
+    final bannerBg = isDark ? const Color(0xFF2D1B00) : const Color(0xFFFFF7ED);
+    final bannerBorder = isDark ? Colors.amber.shade800.withValues(alpha: 0.5) : const Color(0xFFFFEDD5);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bannerBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: bannerBorder, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade700.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.bolt_rounded, color: Colors.amber.shade700, size: 22),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Unfinished Workout Session',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.amber.shade200 : const Color(0xFF9A3412),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$routineName • ${rawExercises.length} exercises, $totalSets sets logged',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: isDark ? Colors.white70 : const Color(0xFFC2410C),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.close_rounded, size: 18),
+                tooltip: 'Discard draft',
+                onPressed: _confirmDiscardDraft,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _finishAndSaveDraftDirectly,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? Colors.amber.shade300 : const Color(0xFFC2410C),
+                    side: BorderSide(
+                      color: isDark ? Colors.amber.shade700 : const Color(0xFFFDBA74),
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  child: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Save to History',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _resumeActiveDraft,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: const Text(
+                    'Resume',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.amber.shade700,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _startFreeStyleWorkout() async {
+    final canProceed = await _checkExistingDraftBeforeStart();
+    if (!canProceed || !mounted) return;
     Navigator.of(context)
         .push(
           MaterialPageRoute(
@@ -51,7 +306,9 @@ class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
         .then((_) => _loadRoutines());
   }
 
-  void _startRoutineWorkout(RoutineWithExercises routineWithEx) {
+  Future<void> _startRoutineWorkout(RoutineWithExercises routineWithEx) async {
+    final canProceed = await _checkExistingDraftBeforeStart();
+    if (!canProceed || !mounted) return;
     Navigator.of(context)
         .push(
           MaterialPageRoute(
@@ -62,7 +319,9 @@ class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
         .then((_) => _loadRoutines());
   }
 
-  void _startWorkoutWithDate({RoutineWithExercises? routine, DateTime? date}) {
+  Future<void> _startWorkoutWithDate({RoutineWithExercises? routine, DateTime? date}) async {
+    final canProceed = await _checkExistingDraftBeforeStart();
+    if (!canProceed || !mounted) return;
     Navigator.of(context)
         .push(
           MaterialPageRoute(
@@ -438,6 +697,7 @@ class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
                   vertical: 12.0,
                 ),
                 children: [
+                  if (_activeDraft != null) _buildActiveDraftBanner(isDark),
                   // Free-style Workout Card
                   Card(
                     elevation: 3,

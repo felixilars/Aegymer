@@ -1,177 +1,156 @@
 # Aegymer
 
-Aegymer is a fitness and nutrition tracking app built with Flutter. It helps users log workouts, monitor progress over time, and plan meals around their calorie and macro goals. The app turns your activity and food input into practical recommendations for reaching your training and body goals.
+<p align="center">
+  <img src="flutter_application_1/web/icons/Icon-192.png" alt="Aegymer Logo" width="96" height="96" />
+</p>
 
-## Table of Contents
+<p align="center">
+  <strong>Private, Offline-First Fitness & Nutrition Tracking App</strong>
+</p>
 
-- [Demo](#demo)
-- [Getting Started](#getting-started)
-- [How to use each page](#how-to-use-each-page)
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contributing](#contributing)
+<p align="center">
+  <img src="https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white" alt="Flutter" />
+  <img src="https://img.shields.io/badge/Dart-%230175C2.svg?style=for-the-badge&logo=Dart&logoColor=white" alt="Dart" />
+  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Desktop-blue?style=for-the-badge" alt="Platforms" />
+  <img src="https://img.shields.io/badge/Database-SQLite%20(Drift)-green?style=for-the-badge" alt="SQLite" />
+  <img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-orange?style=for-the-badge" alt="Offline First" />
+</p>
+
+---
+
+Aegymer is a modern, privacy-focused fitness and nutrition companion engineered with Flutter. Built from the ground up on an **offline-first local database (SQLite via Drift)**, Aegymer provides comprehensive workout tracking, continuous auto-save crash recovery, progressive overload analytics, and macro-based meal suggestions—without requiring personal email sign-ups or sending your health data to third-party servers.
+
+---
+
+## Key Features
+
+- **🏋️‍♂️ Training & Workout Logging**
+  - Track barbell lifts, dumbbells, weighted/assisted bodyweight, and cardio movements.
+  - Built-in automatic rest timer, plate calculator, and accurate per-set calorie burn estimations.
+  - **Crash & Exit Recovery**: Background auto-save preserves all active workout sets every 10 seconds and on app lifecycle changes. Never lose your progress if you exit on the last set.
+- **📝 Complete Workout History Management**
+  - Dedicated history view to browse every past training session.
+  - In-place editing and deletion of past sessions, weights, and reps with instant streak and volume recalculations.
+- **🥗 Nutrition & Smart Meal Planning**
+  - Automated BMR & TDEE calculation based on body metrics and activity level.
+  - Smart meal suggestion engine matching foods to your remaining daily calories and macronutrient ratios (Protein, Carbs, Fats).
+  - Food search powered by OpenFoodFacts with customizable portion sizes.
+- **📈 Analytics & Progressive Overload**
+  - Volume load trends and estimated 1RM (e1RM) progression charts.
+  - Muscle group distribution breakdown (Chest, Back, Legs, Shoulders, Arms, Core).
+- **🔒 Privacy First & Zero Telemetry**
+  - 100% local SQLite database. No mandatory account creation or cloud lock-in.
+  - Full local backup export and restore via JSON.
+
+---
+
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/homepage.gif" width="215" alt="Home page walkthrough" />
+  &nbsp;&nbsp;
+  <img src="screenshots/workout_session.gif" width="215" alt="Workout session logging" />
+  &nbsp;&nbsp;
+  <img src="screenshots/progress_chart.gif" width="215" alt="Progress & Charts" />
+  &nbsp;&nbsp;
+  <img src="screenshots/meal.gif" width="215" alt="Meal planning" />
+</p>
+
+<p align="center">
+  <sub>Left to right: Daily Dashboard & Streak, Active Workout Logging, Progress Analytics, Smart Meal Planning.</sub>
+</p>
+
+---
+
+## Architecture & Project Structure
+
+The project follows a clean, modular structure separating data layers, business services, and presentation widgets:
+
+```
+flutter_application_1/
+├── android/                   # Native Android configuration (release keystore, manifest)
+├── lib/
+│   ├── core/
+│   │   ├── databases/         # Drift SQLite schema (sessions, sets, foods, routines, profiles)
+│   │   ├── repositories/      # Data access layer for food, meals, user profile
+│   │   ├── services/          # Core domain services (workout draft, backup, streak, nutrition)
+│   │   ├── theme/             # Global light and dark design system tokens
+│   │   └── utils/             # Math calculators (e1RM, calories, duration formatters)
+│   ├── helper/                # First-launch detection and preference managers
+│   ├── models/                # Domain data models, score results, and DTOs
+│   ├── presentation/
+│   │   ├── AppBars/           # Custom top app bars
+│   │   ├── screen/
+│   │   │   ├── Home_and_Main/ # Dashboard, streak summary, recent sessions
+│   │   │   ├── MealPrep/      # Meal logging, macro counters, food search
+│   │   │   ├── UserProfile/   # Body metrics, target goals, and preferences
+│   │   │   └── ...            # Active workout, routine editor, workout history
+│   │   └── widgets/           # Shared reusable UI components
+│   └── main.dart              # Application entry point and database initialization
+└── test/                      # Unit and widget tests
+```
+
+---
 
 ## Getting Started
 
-Follow these steps to get the app running locally:
+### Prerequisites
 
-1. Clone the repository:
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) (version `>=3.22.0`)
+- [Dart SDK](https://dart.dev/get-dart) (version `^3.4.0`)
+- Android Studio / VS Code with Flutter extension
+- Android SDK (API level 30 or newer recommended)
 
-```bash
-git clone https://github.com/felixilars/Aegymer.git
-```
+### Local Setup
 
-2. Open the Flutter app directory:
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/felixilars/Aegymer.git
+   cd Aegymer/flutter_application_1
+   ```
 
-```bash
-cd Aegymer/flutter_application_1
-```
+2. **Install project dependencies:**
+   ```bash
+   flutter pub get
+   ```
 
-3. Install dependencies:
+3. **Generate Drift Database code (if modifying schemas):**
+   ```bash
+   dart run build_runner build --delete-conflicting-outputs
+   ```
 
-```bash
-flutter pub get
-```
+4. **Run the development app:**
+   ```bash
+   flutter run
+   ```
 
-4. Run the app:
+---
 
-```bash
-flutter run
-```
+## Building Release APK
 
-## How to use each page
-
-### 1. Home page
-
-<img src="screenshots/homepage.gif" alt="Home page walkthrough" width="260" />
-
-The Home page is your daily dashboard. It gives you a quick overview of your fitness routine and your consistency.
-
-What you can do here:
-
-- Check your current workout streak and weekly target.
-- Swipe through summary cards for your progress overview.
-- View recent workout sessions at a glance.
-- Tap Start Workout to begin a training session.
-- Tap the profile icon in the app bar to update your body metrics, activity level, or nutrition target.
-- Pull down to refresh the page and update the latest data.
-
-How to use it:
-
-1. Open the app and land on the Home tab.
-2. Review your streak, weekly goal, and recent sessions.
-3. If you want to train, tap Start Workout.
-4. If your goals change, open your profile and update your details.
-
-### 2. Meals page
-
-<img src="screenshots/meal.gif" alt="Meals page walkthrough" width="260" />
-
-The Meals page helps you plan food around your goals and current meal context.
-
-What you can do here:
-
-- Pick the meal you are currently planning, such as breakfast, lunch, dinner, or snacks.
-- See how many calories and macros are still remaining.
-- Browse recommended foods based on your goals and food preferences.
-- Search for foods by name.
-- Add foods to your meal by choosing the portion size.
-- Edit or remove foods you already logged.
-
-How to use it:
-
-1. Go to the Meals tab.
-2. Select the meal you want to track.
-3. Review the remaining calories and macros.
-4. Add a recommended food or search for your own food.
-5. Choose the amount in grams and confirm.
-6. Repeat for other foods until your meal is balanced.
-
-### 3. Workout page
-
-<img src="screenshots/workout_session.gif" alt="Workout page walkthrough" width="260" />
-
-The Workout page is where you record and manage your actual training.
-
-What you can do here:
-
-- Choose a saved routine or start a freestyle workout.
-- Create a new routine by selecting exercises and saving it.
-- Edit or delete an existing routine if needed.
-- Start a timer for the training session.
-- Add sets for each exercise and enter weight, reps, distance, or duration.
-- Track different training styles such as weighted lifts, bodyweight exercises, or cardio.
-- Save the session after finishing the workout.
-
-How to use it:
-
-1. Open the Process tab.
-2. Select a workout routine or tap Start Free Style.
-3. Add the exercises you want to complete.
-4. Fill in each set with the correct values.
-5. Use the timer to monitor session time.
-6. When finished, complete the workout and save the log.
-
-### 4. Progress page
-
-<img src="screenshots/progress_chart.gif" alt="Progress page walkthrough" width="260" />
-
-The Progress page shows how your training is improving over time.
-
-What you can do here:
-
-- View your best lifts and workout stats.
-- Switch between Exercise, Muscle, and Day views.
-- Compare performance across different exercises or muscle groups.
-- Track trends over time with charts.
-- Review your total workouts and trained movements.
-
-How to use it:
-
-1. Open the Progress tab.
-2. Choose whether you want to view data by exercise, muscle group, or day.
-3. Pick the specific exercise or muscle group you want to inspect.
-4. Review the chart and summary cards to see your training trend.
-5. Use this data to adjust your future workouts and goals.
-
-## Features
-
-- Personalized fitness and nutrition tracking.
-- Workout streak tracking and weekly goal setting.
-- Meal recommendations based on remaining calories and macros.
-- Food search and meal logging.
-- Workout routine creation and editing.
-- Exercise tracking with sets, reps, weight, distance, and time.
-- Training progress analytics with charts and PR summaries.
-- Local profile management for your body stats, activity level, and goals.
-
-## Installation
-
-1. Make sure Flutter and Dart are installed on your machine.
-2. Open the project in your preferred IDE.
-3. Run:
+To produce a production release APK for Android devices:
 
 ```bash
-flutter pub get
+cd flutter_application_1
+flutter build apk --release
 ```
 
-4. Connect a simulator or device, then launch:
-
-```bash
-flutter run
+The compiled APK will be generated at:
+```
+flutter_application_1/build/app/outputs/flutter-apk/app-release.apk
 ```
 
-## Usage
+> **Note on Updates**: Ensure your signing keystore (`key.properties` and `.jks`) remains consistent across builds and increment the `versionCode` in `pubspec.yaml` (e.g., `1.0.1+2`) so Android can install updates smoothly over existing installations without losing local database records.
 
-1. Create your profile on first launch so the app can calculate your calorie and macro targets.
-2. Use the Home page to check your status and start workouts.
-3. Track meals in the Meals page.
-4. Log workouts in the Process page.
-5. Review your improvement in the Progress page.
-6. Update your profile whenever your body metrics or goals change.
+---
 
 ## Contributing
 
-If you want to improve the app, feel free to fork the project and submit a pull request with your changes.
+Contributions, issues, and feature suggestions are welcome!
+Feel free to open an issue or submit a pull request on [GitHub](https://github.com/felixilars/Aegymer).
 
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

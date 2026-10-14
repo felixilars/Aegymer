@@ -4,6 +4,8 @@ import 'package:drift/drift.dart' as drift;
 import 'package:aegymer/models/exercises_with_sets.dart';
 import 'package:aegymer/core/databases/app_database.dart';
 import 'package:aegymer/core/utils/workout_cal.dart';
+import 'package:aegymer/core/services/streak_service.dart';
+import 'package:aegymer/presentation/screen/edit_workout_session_screen.dart';
 
 class RecentSessionPopup extends StatefulWidget {
   final WorkoutSession session;
@@ -20,6 +22,7 @@ class RecentSessionPopup extends StatefulWidget {
 }
 
 class _RecentSessionPopupState extends State<RecentSessionPopup> {
+  late WorkoutSession _session;
   List<ExerciseWithSets> _exerciseGroups = [];
   double _userWeight = 70.0;
   bool _loading = true;
@@ -27,6 +30,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
   @override
   void initState() {
     super.initState();
+    _session = widget.session;
     _loadWorkoutSets();
   }
 
@@ -41,7 +45,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
       ),
     ])
       ..where(
-        widget.db.workoutSets.sessionId.equals(widget.session.id),
+        widget.db.workoutSets.sessionId.equals(_session.id),
       )
       ..orderBy([
         drift.OrderingTerm.asc(widget.db.workoutSets.setNumber),
@@ -72,6 +76,69 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
       _exerciseGroups = map.values.toList();
       _loading = false;
     });
+  }
+
+  Future<void> _openEditScreen() async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => EditWorkoutSessionScreen(
+          db: widget.db,
+          session: _session,
+        ),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      final freshSession = await widget.db.getWorkoutSessionById(_session.id);
+      if (freshSession != null && mounted) {
+        setState(() {
+          _session = freshSession;
+          _loading = true;
+        });
+        await _loadWorkoutSets();
+      } else if (mounted) {
+        Navigator.pop(context, true);
+      }
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Workout?'),
+        content: const Text(
+          'Are you sure you want to delete this workout session? All logged sets will be removed and streaks will be updated.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      await widget.db.deleteWorkoutSession(_session.id);
+      StreakService.notifyWorkoutUpdated();
+      if (mounted) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Workout session deleted.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   String _formatDate(DateTime dt) {
@@ -190,7 +257,6 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Column(
@@ -205,7 +271,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _formatDate(widget.session.date),
+                        _formatDate(_session.date),
                         style: TextStyle(
                           fontSize: 13,
                           color: txtSecondary,
@@ -213,6 +279,18 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                       ),
                     ],
                   ),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(Icons.edit_outlined, color: theme.colorScheme.primary, size: 22),
+                  tooltip: 'Edit Workout',
+                  onPressed: _openEditScreen,
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 22),
+                  tooltip: 'Delete Workout',
+                  onPressed: _confirmDelete,
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
@@ -499,7 +577,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                 ),
               ),
 
-            if (_exerciseGroups.isNotEmpty && widget.session.notes != null && widget.session.notes!.isNotEmpty) ...[
+            if (_exerciseGroups.isNotEmpty && _session.notes != null && _session.notes!.isNotEmpty) ...[
               const SizedBox(height: 10),
               Container(
                 width: double.infinity,
@@ -522,7 +600,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      widget.session.notes ?? '',
+                      _session.notes ?? '',
                       style: TextStyle(
                         fontSize: 13,
                         color: txtSecondary,
@@ -534,23 +612,40 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
             ],
 
             const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _openEditScreen,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Edit'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                child: const Text(
-                  'Close',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),

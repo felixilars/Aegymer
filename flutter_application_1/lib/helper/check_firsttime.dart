@@ -1,12 +1,24 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:aegymer/core/databases/app_database.dart';
 
 class CheckFirstTime {
-  static Future<bool> isFirstTime() async {
-    // Implement your logic to check if it's the first time the app is being run
-    // For example, you can use SharedPreferences to store a flag
+  static Future<bool> isFirstTime([AppDatabase? db]) async {
     final prefs = await SharedPreferences.getInstance();
-    final isFirstTime = prefs.getBool('isFirstTime') ?? true;
-    return isFirstTime;
+    final isFirstTimePref = prefs.getBool('isFirstTime');
+    if (isFirstTimePref != null) {
+      return isFirstTimePref;
+    }
+    // If flag is missing on update, check if user data already exists in database
+    if (db != null) {
+      try {
+        final profiles = await db.select(db.userProfiles).get();
+        if (profiles.isNotEmpty) {
+          await prefs.setBool('isFirstTime', false);
+          return false;
+        }
+      } catch (_) {}
+    }
+    return true;
   }
 
   static Future<void> setFirstTime(bool value) async {

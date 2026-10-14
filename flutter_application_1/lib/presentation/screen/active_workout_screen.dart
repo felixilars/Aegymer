@@ -8,6 +8,7 @@ import 'package:aegymer/core/utils/workout_cal.dart';
 import 'package:aegymer/core/services/sync_service.dart';
 import 'package:aegymer/core/services/streak_service.dart';
 import 'package:aegymer/core/utils/url_launcher_helper.dart';
+import 'package:aegymer/core/services/workout_draft_service.dart';
 
 class LocalWorkoutSet {
   final TextEditingController weightController;
@@ -31,6 +32,17 @@ class LocalWorkoutSet {
        durationController = TextEditingController(
          text: duration > 0 ? _formatDurationString(duration) : '',
        );
+
+  LocalWorkoutSet.fromRawText({
+    String weight = '',
+    String reps = '',
+    String distance = '',
+    String duration = '',
+    this.weightType = 'standard',
+  }) : weightController = TextEditingController(text: weight),
+       repsController = TextEditingController(text: reps),
+       distanceController = TextEditingController(text: distance),
+       durationController = TextEditingController(text: duration);
 
   static String formatWeight(double weight) {
     if (weight % 1 == 0) {
@@ -79,19 +91,21 @@ class ActiveWorkoutScreen extends StatefulWidget {
   final AppDatabase db;
   final RoutineWithExercises? routine;
   final DateTime? initialDate;
+  final Map<String, dynamic>? restoredDraft;
 
   const ActiveWorkoutScreen({
     super.key,
     required this.db,
     this.routine,
     this.initialDate,
+    this.restoredDraft,
   });
 
   @override
   State<ActiveWorkoutScreen> createState() => _ActiveWorkoutScreenState();
 }
 
-class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
+class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsBindingObserver {
   final _notesController = TextEditingController();
   final _pageController = PageController();
   final _headerScrollController = ScrollController();
@@ -269,12 +283,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _startTimer();
     _loadInitialData();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _notesController.dispose();
     _pageController.dispose();
@@ -293,6 +309,43 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _saveCurrentDraft();
+    }
+  }
+
+  Future<void> _saveCurrentDraft() async {
+    if (_sessionExercises.isEmpty) return;
+
+    final setsData = <String, List<Map<String, dynamic>>>{};
+    for (final ex in _sessionExercises) {
+      final sets = _exerciseSets[ex.id] ?? [];
+      setsData[ex.id] = sets.map((s) => {
+        'weight': s.weightController.text,
+        'reps': s.repsController.text,
+        'distance': s.distanceController.text,
+        'duration': s.durationController.text,
+        'weightType': s.weightType,
+      }).toList();
+    }
+
+    await WorkoutDraftService.saveDraft(
+      workoutDate: _workoutDate,
+      sessionStartTime: _sessionStartTime ?? DateTime.now(),
+      secondsElapsed: _secondsElapsed,
+      notes: _notesController.text,
+      routineId: widget.routine?.routine.id,
+      routineName: widget.routine?.routine.name,
+      exercises: _sessionExercises,
+      trackingTypes: _activeTrackingTypes,
+      setsData: setsData,
+    );
+  }
+
   void _startTimer() {
     _sessionStartTime ??= DateTime.now();
     _timer?.cancel();
@@ -308,6 +361,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             }
           }
         });
+        if (_secondsElapsed > 0 && _secondsElapsed % 10 == 0) {
+          _saveCurrentDraft();
+        }
       }
     });
   }
@@ -336,38 +392,106 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       _allAvailableExercises = await widget.db.select(widget.db.exercises).get();
     }
 
-    // 3. Load routine exercises
-    if (widget.routine != null) {
-      _sessionExercises = List.from(widget.routine!.exercises);
-    } else {
-      _sessionExercises = [];
-    }
-
     _prefs = await SharedPreferences.getInstance();
 
-    // 4. Init sets and tracking types
-    for (final ex in _sessionExercises) {
-      final opts = await _getSavedOrHistoricalOptions(ex.id);
-      final initialType = opts.mode ??
-          WorkoutCalculator.normalizeTrackingType(
-            ex.trackingType,
-            name: ex.name,
-            targetMuscle: ex.targetMuscle,
-            equipment: ex.equipment,
+    if (widget.restoredDraft != null) {
+      final draft = widget.restoredDraft!;
+      final wDateStr = draft['workoutDate'] as String?;
+      if (wDateStr != null) {
+        _workoutDate = DateTime.tryParse(wDateStr) ?? _workoutDate;
+      }
+      final sTimeStr = draft['sessionStartTime'] as String?;
+      if (sTimeStr != null) {
+        _sessionStartTime = DateTime.tryParse(sTimeStr) ?? _sessionStartTime;
+      }
+      _secondsElapsed = draft['secondsElapsed'] as int? ?? _secondsElapsed;
+      if (_secondsElapsed > 0) {
+        _sessionStartTime = DateTime.now().subtract(Duration(seconds: _secondsElapsed));
+      }
+      _notesController.text = draft['notes'] as String? ?? '';
+
+      final rawExs = draft['exercises'] as List<dynamic>? ?? [];
+      final draftSetsData = draft['setsData'] as Map<String, dynamic>? ?? {};
+      final draftTrackingTypes = draft['trackingTypes'] as Map<String, dynamic>? ?? {};
+
+      final availableMap = {for (final e in _allAvailableExercises) e.id: e};
+
+      _sessionExercises = [];
+      for (final rawEx in rawExs) {
+        final exMap = rawEx as Map<String, dynamic>;
+        final exId = exMap['id'] as String;
+        final ex = availableMap[exId] ??
+            Exercise(
+              id: exId,
+              name: exMap['name']?.toString() ?? 'Exercise',
+              targetMuscle: exMap['targetMuscle']?.toString() ?? '',
+              equipment: exMap['equipment']?.toString() ?? '',
+              isCustom: false,
+            );
+        _sessionExercises.add(ex);
+
+        final tType = draftTrackingTypes[exId]?.toString() ?? exMap['trackingType']?.toString() ?? 'weight_reps';
+        _activeTrackingTypes[exId] = tType;
+
+        final rawSets = draftSetsData[exId] as List<dynamic>? ?? [];
+        final localSets = <LocalWorkoutSet>[];
+        for (final rawSet in rawSets) {
+          final sMap = rawSet as Map<String, dynamic>;
+          final wStr = sMap['weight']?.toString() ?? '';
+          final rStr = sMap['reps']?.toString() ?? '';
+          final distStr = sMap['distance']?.toString() ?? '';
+          final durStr = sMap['duration']?.toString() ?? '';
+          final wType = sMap['weightType']?.toString() ?? 'standard';
+
+          localSets.add(
+            LocalWorkoutSet.fromRawText(
+              weight: wStr,
+              reps: rStr,
+              distance: distStr,
+              duration: durStr,
+              weightType: wType,
+            ),
           );
-      _activeTrackingTypes[ex.id] = initialType;
-      _initSetsForExercise(
-        ex,
-        explicitSetCount: opts.setCount,
-        explicitWeightType: opts.weightType,
-      );
+        }
+
+        if (localSets.isEmpty) {
+          _initSetsForExercise(ex);
+        } else {
+          _exerciseSets[exId] = localSets;
+        }
+      }
+    } else {
+      // 3. Load routine exercises
+      if (widget.routine != null) {
+        _sessionExercises = List.from(widget.routine!.exercises);
+      } else {
+        _sessionExercises = [];
+      }
+
+      // 4. Init sets and tracking types
+      for (final ex in _sessionExercises) {
+        final opts = await _getSavedOrHistoricalOptions(ex.id);
+        final initialType = opts.mode ??
+            WorkoutCalculator.normalizeTrackingType(
+              ex.trackingType,
+              name: ex.name,
+              targetMuscle: ex.targetMuscle,
+              equipment: ex.equipment,
+            );
+        _activeTrackingTypes[ex.id] = initialType;
+        _initSetsForExercise(
+          ex,
+          explicitSetCount: opts.setCount,
+          explicitWeightType: opts.weightType,
+        );
+      }
     }
 
     setState(() {
       _isLoading = false;
     });
-  }  
-  
+  }
+
   void _initSetsForExercise(
     Exercise ex, {
     int? explicitSetCount,
@@ -858,6 +982,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       );
 
       StreakService.notifyWorkoutUpdated();
+      await WorkoutDraftService.clearDraft();
 
       for (final ex in _sessionExercises) {
         final sets = _exerciseSets[ex.id] ?? [];
@@ -1069,135 +1194,200 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     );
   }
 
- @override
+  Future<String?> _showExitConfirmationDialog() async {
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.pause_circle_outline_rounded, color: Colors.amber),
+            SizedBox(width: 8),
+            Text('Workout in Progress'),
+          ],
+        ),
+        content: const Text(
+          'You have an ongoing workout. What would you like to do before leaving?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'discard'),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Discard'),
+          ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, 'leave'),
+            child: const Text('Save Draft & Exit'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'finish'),
+            child: const Text('Finish & Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.routine?.routine.name ?? 'Free Workout',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final action = await _showExitConfirmationDialog();
+        if (action == 'finish') {
+          await _finishWorkout();
+        } else if (action == 'leave') {
+          await _saveCurrentDraft();
+          if (mounted) Navigator.of(context).pop();
+        } else if (action == 'discard') {
+          await WorkoutDraftService.clearDraft();
+          if (mounted) Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () async {
+              final action = await _showExitConfirmationDialog();
+              if (action == 'finish') {
+                await _finishWorkout();
+              } else if (action == 'leave') {
+                await _saveCurrentDraft();
+                if (mounted) Navigator.of(context).pop();
+              } else if (action == 'discard') {
+                await WorkoutDraftService.clearDraft();
+                if (mounted) Navigator.of(context).pop();
+              }
+            },
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.routine?.routine.name ?? 'Free Workout',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                'Time: ${_formatDuration(_secondsElapsed)}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(
+                Icons.calendar_month_outlined,
+                color: _isPastDate ? Colors.amber.shade700 : null,
+              ),
+              tooltip: 'Workout Date',
+              onPressed: _pickWorkoutDate,
             ),
-            Text(
-              'Time: ${_formatDuration(_secondsElapsed)}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            IconButton(
+              icon: const Icon(Icons.add_box_outlined),
+              tooltip: 'Add Exercise',
+              onPressed: _showAddExerciseSheet,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: _finishWorkout,
+                child: const Text('Finish'),
+              ),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.calendar_month_outlined,
-              color: _isPastDate ? Colors.amber.shade700 : null,
-            ),
-            tooltip: 'Workout Date',
-            onPressed: _pickWorkoutDate,
-          ),
-          IconButton(
-            icon: const Icon(Icons.add_box_outlined),
-            tooltip: 'Add Exercise',
-            onPressed: _showAddExerciseSheet,
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                visualDensity: VisualDensity.compact,
-              ),
-              onPressed: _finishWorkout,
-              child: const Text('Finish'),
-            ),
-          ),
-        ],
-      ),
-      body: _sessionExercises.isEmpty
-          ? _buildEmptyState()
-          : Column(
-              children: [
-                if (_isPastDate)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF261E0F)
-                          : const Color(0xFFFFFBEB),
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.amber.shade700.withValues(alpha: 0.3),
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.history_rounded, size: 18, color: Colors.amber.shade700),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Past Workout: $_formattedWorkoutDate',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.amber.shade200
-                                  : Colors.amber.shade900,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+        body: _sessionExercises.isEmpty
+            ? _buildEmptyState()
+            : Column(
+                children: [
+                  if (_isPastDate)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF261E0F)
+                            : const Color(0xFFFFFBEB),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.amber.shade700.withValues(alpha: 0.3),
+                            width: 1,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(6),
-                          onTap: _pickWorkoutDate,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.history_rounded, size: 18, color: Colors.amber.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
                             child: Text(
-                              'Change Date',
+                              'Past Workout: $_formattedWorkoutDate',
                               style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
                                 color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.amber.shade300
-                                    : Colors.amber.shade800,
-                                decoration: TextDecoration.underline,
+                                    ? Colors.amber.shade200
+                                    : Colors.amber.shade900,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: _pickWorkoutDate,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              child: Text(
+                                'Change Date',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.amber.shade300
+                                      : Colors.amber.shade800,
+                                  decoration: TextDecoration.underline,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                    ),
+                  _buildHorizontalIndicatorBar(),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: _sessionExercises.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentPageIndex = index;
+                        });
+                        _scrollToHeaderIndicator(index);
+                      },
+                      itemBuilder: (context, index) {
+                        final ex = _sessionExercises[index];
+                        return _buildExercisePage(ex);
+                      },
                     ),
                   ),
-                _buildHorizontalIndicatorBar(),
-                const Divider(height: 1),
-                Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: _sessionExercises.length,
-                    onPageChanged: (index) {
-                      setState(() {
-                        _currentPageIndex = index;
-                      });
-                      _scrollToHeaderIndicator(index);
-                    },
-                    itemBuilder: (context, index) {
-                      final ex = _sessionExercises[index];
-                      return _buildExercisePage(ex);
-                    },
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
+      ),
     );
   }
 

@@ -23,7 +23,7 @@ class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
 
   late final AppDatabase _db;
-  final Map<int, Widget> _cachedPages = {};
+  final List<Widget?> _tabPages = [null, null, null, null];
   late final List<PreferredSizeWidget> _appbars;
 
   @override
@@ -40,28 +40,26 @@ class _MainPageState extends State<MainPage> {
     ];
   }
 
-  Widget _getPage(int index) {
-    return _cachedPages.putIfAbsent(index, () {
-      switch (index) {
-        case 0:
-          return Homepage(
-            db: _db,
-            onRecordWorkout: () {
-              setState(() {
-                _selectedIndex = 2;
-              });
-            },
-          );
-        case 1:
-          return MealPrepPage(db: _db);
-        case 2:
-          return WorkoutLauncherScreen(db: _db);
-        case 3:
-          return WorkoutProgressScreen(db: _db);
-        default:
-          return const SizedBox.shrink();
-      }
-    });
+  Widget _buildTab(int index) {
+    switch (index) {
+      case 0:
+        return Homepage(
+          db: _db,
+          onRecordWorkout: () {
+            setState(() {
+              _selectedIndex = 2;
+            });
+          },
+        );
+      case 1:
+        return MealPrepPage(db: _db);
+      case 2:
+        return WorkoutLauncherScreen(db: _db);
+      case 3:
+        return WorkoutProgressScreen(db: _db);
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   void _openProfile() {
@@ -71,13 +69,9 @@ class _MainPageState extends State<MainPage> {
   }
 
   @override
-  void dispose() {
-    _db.close();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    _tabPages[_selectedIndex] ??= _buildTab(_selectedIndex);
+
     final currentAppBar = _appbars[_selectedIndex];
     final hasAppBar = currentAppBar.preferredSize.height > 0;
 
@@ -86,7 +80,15 @@ class _MainPageState extends State<MainPage> {
       body: Column(
         children: [
           CloudSyncBanner(syncService: SyncService(_db)),
-          Expanded(child: _getPage(_selectedIndex)),
+          Expanded(
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: List.generate(
+                4,
+                (i) => _tabPages[i] ?? const SizedBox.shrink(),
+              ),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(

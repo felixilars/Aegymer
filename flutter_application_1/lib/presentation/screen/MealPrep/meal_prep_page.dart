@@ -138,7 +138,7 @@ class _MealPrepPageState extends State<MealPrepPage> {
     }
   }
 
-  bool _recommendationsCollapsed = false;
+  bool _recommendationsCollapsed = true;
 
   Future<void> _addRecommendationToMeal(
     MealRecommendation recommendation,
@@ -351,31 +351,78 @@ class _MealPrepPageState extends State<MealPrepPage> {
             remaining: _remainingState.remaining,
           ),
           const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Expanded(
-                child: _SectionHeader(
-                  title: 'Recommended Foods',
-                  subtitle: 'Best foods for this meal',
-                ),
+          InkWell(
+            onTap: () {
+              setState(() {
+                _recommendationsCollapsed = !_recommendationsCollapsed;
+              });
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Expanded(
+                    child: _SectionHeader(
+                      title: 'Recommended Foods',
+                      subtitle: 'Best foods for this meal',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _recommendationsCollapsed
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: _recommendationsCollapsed ? 1.0 : 0.3,
+                        ),
+                        width: 1.5,
+                      ),
+                      boxShadow: _recommendationsCollapsed
+                          ? [
+                              BoxShadow(
+                                color: theme.colorScheme.primary.withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _recommendationsCollapsed ? 'View Foods' : 'Hide',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: _recommendationsCollapsed
+                                ? theme.colorScheme.onPrimary
+                                : theme.colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          _recommendationsCollapsed
+                              ? Icons.keyboard_arrow_down_rounded
+                              : Icons.keyboard_arrow_up_rounded,
+                          size: 18,
+                          color: _recommendationsCollapsed
+                              ? theme.colorScheme.onPrimary
+                              : theme.colorScheme.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              IconButton(
-                icon: Icon(
-                  _recommendationsCollapsed
-                      ? Icons.keyboard_arrow_down
-                      : Icons.keyboard_arrow_up,
-                ),
-                tooltip: _recommendationsCollapsed
-                    ? 'Show Recommendations'
-                    : 'Hide Recommendations',
-                onPressed: () {
-                  setState(() {
-                    _recommendationsCollapsed = !_recommendationsCollapsed;
-                  });
-                },
-              ),
-            ],
+            ),
           ),
           const SizedBox(height: 12),
           if (!_recommendationsCollapsed)

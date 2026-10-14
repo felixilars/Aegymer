@@ -48,7 +48,10 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   Future<void> close() async {
-    _instance = null;
+    // Prevent accidental closing of the singleton application database during UI navigation
+    if (identical(this, _instance)) {
+      return;
+    }
     await super.close();
   }
 

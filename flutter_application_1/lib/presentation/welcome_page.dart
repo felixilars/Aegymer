@@ -118,7 +118,6 @@ class _WelcomePageState extends State<WelcomePage> {
     _heightController.dispose();
     _activityController.dispose();
     _preferencesController.dispose();
-    _db.close();
     super.dispose();
   }
 

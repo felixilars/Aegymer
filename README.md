@@ -60,7 +60,13 @@ An export/import feature in the settings allows you to export your complete data
 
 ## Contributing
 
-Contributions and pull requests are welcome. Feel free to open an issue or fork the repository and submit a pull request.
+Contributions and pull requests are welcome! Please review [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on code style, branch naming, and the pull request submission process.
+
+### Contributors
+
+<a href="https://github.com/felixilars/Aegymer/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=felixilars/Aegymer" alt="Aegymer Contributors" />
+</a>
 
 ## Development
 

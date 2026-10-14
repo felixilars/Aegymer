@@ -3,10 +3,11 @@
 [![Release APK](https://img.shields.io/badge/Release-APK%20v1.0.0-2563EB?style=flat-square&logo=android&logoColor=white)](https://github.com/felixilars/Aegymer/releases/latest)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Desktop-38BDF8?style=flat-square)](https://flutter.dev)
 [![Database](https://img.shields.io/badge/Database-SQLite%20(Drift)-10B981?style=flat-square)](https://drift.simonbinder.eu/)
+[![Machine Learning](https://img.shields.io/badge/Machine%20Learning-On--Device%20KNN-8B5CF6?style=flat-square)](#what-it-does)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Offline--First-F97316?style=flat-square)](#privacy)
 [![License](https://img.shields.io/badge/License-MIT-gray?style=flat-square)](LICENSE)
 
-Personal fitness and nutrition tracking app built with Flutter. Workout logging, auto-saved crash recovery, progressive overload analytics, and macro-based meal suggestions in one place, and everything runs offline.
+Personal fitness and nutrition tracking app built with Flutter. Workout logging, on-device machine learning autoregulation, auto-saved crash recovery, progressive overload analytics, and macro-based meal suggestions in one place, and everything runs offline.
 
 The project is developed on [GitHub](https://github.com/felixilars/Aegymer). Releases and source code live here.
 
@@ -40,10 +41,11 @@ No account or sign-up is required. You do not need to provide an email, and all 
 ## What it does
 
 - **Workout Tracking** logs barbell exercises, dumbbell lifts, bodyweight sets (weighted or assisted), and cardio. Tracks weight, reps, distance, and duration with an automatic rest timer, plate calculator, and per-set calorie estimation.
+- **On-Device Machine Learning & Autoregulation** uses a built-in K-Nearest Neighbors (KNN) regression model and the APRE protocol to dynamically prescribe working weights and reps for upcoming sessions. It analyzes Acute-to-Chronic Workload Ratio (ACWR), fatigue drop-off rates, and rest intervals to calculate progressive overload targets and detect deload needs—computed entirely on-device without any cloud dependencies.
 - **Session Recovery** auto-saves active workout progress every 10 seconds and whenever the app is minimized, locked, or backgrounded. If the app closes or the battery runs out during your final set, opening the app presents an unfinished workout banner with options to resume where you left off or save directly to history with a single tap.
 - **Workout History** gives you a full chronological list of every completed session. You can review past performance, edit sets/reps/weights in-place to correct mistakes, or delete duplicate sessions. Streak numbers and volume loads recalculate immediately.
 - **Routine Editor** lets you build and save reusable training routines (e.g. Push, Pull, Legs) or start a free-style workout on the fly.
-- **Nutrition & Meal Suggestions** calculates your BMR and TDEE based on body metrics and activity level. It distributes target calories across Protein, Carbs, and Fats, and recommends balanced meals according to your remaining daily allowance. Includes OpenFoodFacts search and custom portion controls.
+- **Nutrition & Smart Meal Engine** calculates your BMR and TDEE based on body metrics and activity level. It applies a multi-factor heuristic scoring algorithm (matching calories, macro proportions, and food variety) to recommend balanced meals tailored to your remaining daily allowance and current meal context (Breakfast, Lunch, Dinner, Snack). Includes OpenFoodFacts search and custom portion controls.
 - **Progress & Analytics** tracks your volume load trends over time, calculates estimated one-rep maxes (e1RM), and breaks down volume across muscle groups (Chest, Back, Legs, Shoulders, Arms, Core).
 
 The home screen provides a single daily hub showing your current workout streak, weekly target progress, active workout drafts, and your most recent sessions.
@@ -109,7 +111,7 @@ flutter_application_1/
     models/                    # Domain data models, macro calculations, DTOs
     core/
       databases/               # Drift SQLite schema, migrations, and companions
-      services/                # Background draft save, backup, streak, nutrition
+      services/                # Autoregulation (KNN ML), workout draft, backup, streak, nutrition
       repositories/            # Data access layer for food, meals, user profile
       utils/                   # 1RM calculation, calorie estimates, time helpers
       theme/                   # Design system tokens and light/dark theme
@@ -128,8 +130,9 @@ flutter_application_1/
       widgets/                 # Shared UI cards, sheets, and popups
 ```
 
-## Data sources
+## Data sources & Machine Learning
 
+- **On-Device Machine Learning**: Built-in K-Nearest Neighbors (KNN) regression engine and APRE algorithms running locally for volume load and progressive overload modeling.
 - **Exercise Database**: Local curated exercise dataset with target muscle groups and tracking types.
 - **Nutrition Database**: Offline nutrition reference data integrated with the OpenFoodFacts API for extended food queries.
 - **Local Storage**: Local SQLite database via [Drift](https://drift.simonbinder.eu/) with automatic schema migrations.

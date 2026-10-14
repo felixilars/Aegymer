@@ -296,9 +296,12 @@ class StreakService {
       )..where((t) => t.sessionId.isIn(sessionIds))).get();
       totalSets = sets.length;
 
-      // Query exercises to determine tracking type and exercise metadata for each set
-      final allExercises = await db.select(db.exercises).get();
-      final exerciseMap = {for (var e in allExercises) e.id: e};
+      // Query only relevant exercises for these sets to avoid full table scans on startup
+      final exIds = sets.map((s) => s.exerciseId).toSet().toList();
+      final relevantExercises = exIds.isNotEmpty
+          ? await (db.select(db.exercises)..where((e) => e.id.isIn(exIds))).get()
+          : <Exercise>[];
+      final exerciseMap = {for (var e in relevantExercises) e.id: e};
 
       final setsBySession = <String, List<WorkoutSet>>{};
       for (var set in sets) {

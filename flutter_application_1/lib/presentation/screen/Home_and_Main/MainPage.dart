@@ -23,7 +23,7 @@ class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
 
   late final AppDatabase _db;
-  late final List<Widget> _pages;
+  final Map<int, Widget> _cachedPages = {};
   late final List<PreferredSizeWidget> _appbars;
 
   @override
@@ -32,26 +32,36 @@ class _MainPageState extends State<MainPage> {
 
     _db = AppDatabase();
 
-    _pages = [
-      Homepage(
-        db: _db,
-        onRecordWorkout: () {
-          setState(() {
-            _selectedIndex = 2;
-          });
-        },
-      ),
-      MealPrepPage(db: _db),
-      WorkoutLauncherScreen(db: _db),
-      WorkoutProgressScreen(db: _db),
-    ];
-
     _appbars = [
       HomeAppBar(onProfilePressed: _openProfile),
       const PreferredSize(preferredSize: Size.zero, child: SizedBox.shrink()),
       RecordWorkoutAppBar(onHomePressed: () => setState(() => _selectedIndex = 0)),
       const PreferredSize(preferredSize: Size.zero, child: SizedBox.shrink()),
     ];
+  }
+
+  Widget _getPage(int index) {
+    return _cachedPages.putIfAbsent(index, () {
+      switch (index) {
+        case 0:
+          return Homepage(
+            db: _db,
+            onRecordWorkout: () {
+              setState(() {
+                _selectedIndex = 2;
+              });
+            },
+          );
+        case 1:
+          return MealPrepPage(db: _db);
+        case 2:
+          return WorkoutLauncherScreen(db: _db);
+        case 3:
+          return WorkoutProgressScreen(db: _db);
+        default:
+          return const SizedBox.shrink();
+      }
+    });
   }
 
   void _openProfile() {
@@ -76,7 +86,7 @@ class _MainPageState extends State<MainPage> {
       body: Column(
         children: [
           CloudSyncBanner(syncService: SyncService(_db)),
-          Expanded(child: _pages[_selectedIndex]),
+          Expanded(child: _getPage(_selectedIndex)),
         ],
       ),
       bottomNavigationBar: NavigationBar(

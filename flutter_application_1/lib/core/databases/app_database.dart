@@ -35,7 +35,22 @@ class RoutineWithExercises {
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
+  static AppDatabase? _instance;
+
+  factory AppDatabase([QueryExecutor? executor]) {
+    if (executor != null) {
+      return AppDatabase._internal(executor);
+    }
+    return _instance ??= AppDatabase._internal();
+  }
+
+  AppDatabase._internal([QueryExecutor? executor]) : super(executor ?? _openConnection());
+
+  @override
+  Future<void> close() async {
+    _instance = null;
+    await super.close();
+  }
 
   @override
   int get schemaVersion => 4;

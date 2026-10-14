@@ -1501,7 +1501,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               ),
             ),
 
-          // Excel Grid Footer / Set modifiers
           Container(
             decoration: BoxDecoration(
               color: isDark
@@ -1541,7 +1540,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           ),
           const SizedBox(height: 24.0),
 
-          // Notes input field
           const Text(
             'Workout Notes',
             style: TextStyle(fontWeight: FontWeight.bold),
@@ -2047,7 +2045,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     List<Widget> children = [];
     if (activeType == 'cardio_time') {
       children = [
-        // Set number
         Expanded(
           flex: 2,
           child: Center(
@@ -2057,7 +2054,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             ),
           ),
         ),
-        // Distance
         Expanded(
           flex: 9,
           child: Padding(
@@ -2076,7 +2072,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             ),
           ),
         ),
-        // Duration
         Expanded(
           flex: 9,
           child: Padding(
@@ -2096,7 +2091,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       ];
     } else if (activeType == 'time_only') {
       children = [
-        // Set number
         Expanded(
           flex: 2,
           child: Center(
@@ -2106,7 +2100,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             ),
           ),
         ),
-        // Duration
         Expanded(
           flex: 18,
           child: Padding(
@@ -2125,7 +2118,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       ];
     } else if (activeType == 'bodyweight') {
       children = [
-        // Set number
         Expanded(
           flex: 2,
           child: Center(
@@ -2135,13 +2127,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             ),
           ),
         ),
-        // Reps
         Expanded(flex: 18, child: _buildRepsField(localSet)),
       ];
     } else if (activeType == 'bodyweight_weighted' ||
         activeType == 'bodyweight_assisted') {
       children = [
-        // Set number
         Expanded(
           flex: 2,
           child: Center(
@@ -2151,7 +2141,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             ),
           ),
         ),
-        // Type selector
         Expanded(
           flex: 4,
           child: DropdownButton<String>(
@@ -2199,14 +2188,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             },
           ),
         ),
-        // Weight
         Expanded(flex: 7, child: _buildWeightField(localSet, step)),
-        // Reps
         Expanded(flex: 7, child: _buildRepsField(localSet)),
       ];
     } else {
       children = [
-        // Set number
         Expanded(
           flex: 2,
           child: Center(
@@ -2216,9 +2202,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             ),
           ),
         ),
-        // Weight
         Expanded(flex: 9, child: _buildWeightField(localSet, step)),
-        // Reps
         Expanded(flex: 9, child: _buildRepsField(localSet)),
       ];
     }
@@ -2847,7 +2831,6 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Pull bar indicator
               Center(
                 child: Container(
                   width: 40,
@@ -2860,7 +2843,6 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
               ),
               const SizedBox(height: 16.0),
 
-              // Title and Custom Create Button
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

@@ -19,14 +19,12 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
   List<Exercise> _exercises = [];
   Exercise? _selectedExercise;
 
-  // View Options
-  String _viewMode = 'Exercise'; // 'Exercise', 'Muscle', or 'Day'
-  String _dateRange = 'All Time'; // 'Last 7 Days', 'Last 30 Days', 'All Time'
+  String _viewMode = 'Exercise';
+  String _dateRange = 'All Time';
 
   Set<String> _muscleGroups = {};
   String? _selectedMuscleGroup;
 
-  // Processed History Data
   List<Map<String, dynamic>> _chartData = [];
   List<_PrRecord> _prRecords = [];
 
@@ -41,7 +39,6 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
       _isLoading = true;
     });
     try {
-      // Get all unique exerciseIds in workoutSets
       final doneExerciseIdsQuery = widget.db.selectOnly(widget.db.workoutSets, distinct: true)
         ..addColumns([widget.db.workoutSets.exerciseId]);
       final doneExerciseIdsRows = await doneExerciseIdsQuery.get();
@@ -53,10 +50,8 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
       final allExercises = await widget.db.select(widget.db.exercises).get();
       final list = allExercises.where((ex) => doneExerciseIds.contains(ex.id)).toList();
 
-      // Sort exercises alphabetically
       list.sort((a, b) => a.name.compareTo(b.name));
 
-      // Calculate PR Records
       final allSets = await widget.db.select(widget.db.workoutSets).get();
       final allSessions = await widget.db.select(widget.db.workoutSessions).get();
 
@@ -95,7 +90,6 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
         ),
       ]);
 
-      // Split muscle groups with comma
       final Set<String> musclesSet = {};
       for (var ex in list) {
         final splitMuscles = ex.targetMuscle.split(',');
@@ -110,7 +104,6 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
         }
       }
 
-      // Sort muscle groups alphabetically
       final sortedMuscles = musclesSet.toList()..sort();
 
       setState(() {
@@ -141,6 +134,12 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
 
   Future<void> _loadChartData() async {
     List<Map<String, dynamic>> tempChartData = [];
+
+    double userWeight = 70.0;
+    final profile = await (widget.db.select(widget.db.userProfiles)..limit(1)).getSingleOrNull();
+    if (profile != null && profile.weight > 0) {
+      userWeight = profile.weight;
+    }
 
     if (_viewMode == 'Exercise') {
       if (_selectedExercise == null) return;
@@ -183,7 +182,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
               targetMuscle: _selectedExercise!.targetMuscle,
               equipment: _selectedExercise!.equipment,
               trackingType: 'cardio_time',
-              bodyweightKg: 70.0,
+              bodyweightKg: userWeight,
               distanceKm: dist,
               durationSeconds: set.durationSeconds ?? 0,
             );

@@ -7,7 +7,6 @@ import 'package:aegymer/presentation/recent_session_popup.dart';
 import 'package:aegymer/presentation/widgets/streak_detail_sheet.dart';
 import 'package:aegymer/presentation/screen/workout_progress_screen.dart';
 
-// Color Palette
 const backgroundColor = Color(0xffF5F7FA);
 const cardColor = Colors.white;
 const primaryColor = Color(0xff2563EB);
@@ -204,7 +203,6 @@ class _HomepageState extends State<Homepage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 24, top: 12),
           children: [
-            // Top Swipeable Cards: Streak Card, Weekly Goal Card, Summary Card
             SizedBox(
               height: 235,
               child: PageView(
@@ -236,7 +234,6 @@ class _HomepageState extends State<Homepage> {
 
             const SizedBox(height: 24),
 
-            // Recent Sessions Section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -356,7 +353,6 @@ class _HomepageState extends State<Homepage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Card Title Row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -420,7 +416,6 @@ class _HomepageState extends State<Homepage> {
 
             const SizedBox(height: 12),
 
-            // Fire Icon & Count Row
             Row(
               children: [
                 Container(
@@ -463,7 +458,6 @@ class _HomepageState extends State<Homepage> {
 
             const SizedBox(height: 12),
 
-            // 7-Day Activity Matrix Row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: List.generate(7, (index) {
@@ -822,6 +816,11 @@ class _HomepageState extends State<Homepage> {
                       ),
                     ],
                   ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: subTxtCol.withValues(alpha: 0.6),
+                  size: 22,
                 ),
               ],
             ),

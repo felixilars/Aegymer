@@ -1,155 +1,138 @@
 # Aegymer
 
-<p align="center">
-  <img src="flutter_application_1/web/icons/Icon-192.png" alt="Aegymer Logo" width="96" height="96" />
-</p>
+[![Release APK](https://img.shields.io/badge/Release-APK%20v1.0.0-2563EB?style=flat-square&logo=android&logoColor=white)](https://github.com/felixilars/Aegymer/releases/latest)
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Desktop-38BDF8?style=flat-square)](https://flutter.dev)
+[![Database](https://img.shields.io/badge/Database-SQLite%20(Drift)-10B981?style=flat-square)](https://drift.simonbinder.eu/)
+[![Privacy](https://img.shields.io/badge/Privacy-100%25%20Offline--First-F97316?style=flat-square)](#privacy)
+[![License](https://img.shields.io/badge/License-MIT-gray?style=flat-square)](LICENSE)
 
-<p align="center">
-  <strong>Private, Offline-First Fitness & Nutrition Tracking App</strong>
-</p>
+Personal fitness and nutrition tracking app built with Flutter. Workout logging, auto-saved crash recovery, progressive overload analytics, and macro-based meal suggestions in one place, and everything runs offline.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white" alt="Flutter" />
-  <img src="https://img.shields.io/badge/Dart-%230175C2.svg?style=for-the-badge&logo=Dart&logoColor=white" alt="Dart" />
-  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Desktop-blue?style=for-the-badge" alt="Platforms" />
-  <img src="https://img.shields.io/badge/Database-SQLite%20(Drift)-green?style=for-the-badge" alt="SQLite" />
-  <img src="https://img.shields.io/badge/Privacy-100%25%20Offline%20First-orange?style=for-the-badge" alt="Offline First" />
-</p>
+The project is developed on [GitHub](https://github.com/felixilars/Aegymer). Releases and source code live here.
 
----
+## Support
 
-Aegymer is a modern, privacy-focused fitness and nutrition companion engineered with Flutter. Built from the ground up on an **offline-first local database (SQLite via Drift)**, Aegymer provides comprehensive workout tracking, continuous auto-save crash recovery, progressive overload analytics, and macro-based meal suggestions—without requiring personal email sign-ups or sending your health data to third-party servers.
+Questions, bug reports, and feature requests can be submitted through the
+[GitHub issue tracker](https://github.com/felixilars/Aegymer/issues).
+When filing a bug, include the app version, your device model, Android version, and the steps that reproduce the issue.
 
----
+## Download
 
-## Key Features
+Grab the latest APK from the
+[**Releases page**](https://github.com/felixilars/Aegymer/releases/latest) and
+open it on your phone. Works on Android 5.0 (API 21) or newer.
 
-- **🏋️‍♂️ Training & Workout Logging**
-  - Track barbell lifts, dumbbells, weighted/assisted bodyweight, and cardio movements.
-  - Built-in automatic rest timer, plate calculator, and accurate per-set calorie burn estimations.
-  - **Crash & Exit Recovery**: Background auto-save preserves all active workout sets every 10 seconds and on app lifecycle changes. Never lose your progress if you exit on the last set.
-- **📝 Complete Workout History Management**
-  - Dedicated history view to browse every past training session.
-  - In-place editing and deletion of past sessions, weights, and reps with instant streak and volume recalculations.
-- **🥗 Nutrition & Smart Meal Planning**
-  - Automated BMR & TDEE calculation based on body metrics and activity level.
-  - Smart meal suggestion engine matching foods to your remaining daily calories and macronutrient ratios (Protein, Carbs, Fats).
-  - Food search powered by OpenFoodFacts with customizable portion sizes.
-- **📈 Analytics & Progressive Overload**
-  - Volume load trends and estimated 1RM (e1RM) progression charts.
-  - Muscle group distribution breakdown (Chest, Back, Legs, Shoulders, Arms, Core).
-- **🔒 Privacy First & Zero Telemetry**
-  - 100% local SQLite database. No mandatory account creation or cloud lock-in.
-  - Full local backup export and restore via JSON.
+Android will prompt that the file comes from outside Google Play. Allow the installation in your browser or file manager when asked; the APK is signed with the same release key for every version, so future updates install directly over the top without uninstalling first or losing your workout logs.
 
----
+No account or sign-up is required. You do not need to provide an email, and all data stays strictly on your phone.
 
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/homepage.gif" width="215" alt="Home page walkthrough" />
-  &nbsp;&nbsp;
-  <img src="screenshots/workout_session.gif" width="215" alt="Workout session logging" />
-  &nbsp;&nbsp;
-  <img src="screenshots/progress_chart.gif" width="215" alt="Progress & Charts" />
-  &nbsp;&nbsp;
-  <img src="screenshots/meal.gif" width="215" alt="Meal planning" />
+  <img src="screenshots/homepage.gif" width="200" alt="Homepage dashboard with streak counter and recent sessions" />
+  <img src="screenshots/workout_session.gif" width="200" alt="Active workout logging with timer and set rows" />
+  <img src="screenshots/progress_chart.gif" width="200" alt="Progress analytics and volume load chart" />
+  <img src="screenshots/meal.gif" width="200" alt="Meal planning with macro breakdowns" />
 </p>
 
-<p align="center">
-  <sub>Left to right: Daily Dashboard & Streak, Active Workout Logging, Progress Analytics, Smart Meal Planning.</sub>
-</p>
+<p align="center"><sub>From left to right: Daily Dashboard & Streak, Active Workout Logging, Progress & PR Analytics, and Meal Planning.</sub></p>
 
----
+## What it does
 
-## Architecture & Project Structure
+- **Workout Tracking** logs barbell exercises, dumbbell lifts, bodyweight sets (weighted or assisted), and cardio. Tracks weight, reps, distance, and duration with an automatic rest timer, plate calculator, and per-set calorie estimation.
+- **Session Recovery** auto-saves active workout progress every 10 seconds and whenever the app is minimized, locked, or backgrounded. If the app closes or the battery runs out during your final set, opening the app presents an unfinished workout banner with options to resume where you left off or save directly to history with a single tap.
+- **Workout History** gives you a full chronological list of every completed session. You can review past performance, edit sets/reps/weights in-place to correct mistakes, or delete duplicate sessions. Streak numbers and volume loads recalculate immediately.
+- **Routine Editor** lets you build and save reusable training routines (e.g. Push, Pull, Legs) or start a free-style workout on the fly.
+- **Nutrition & Meal Suggestions** calculates your BMR and TDEE based on body metrics and activity level. It distributes target calories across Protein, Carbs, and Fats, and recommends balanced meals according to your remaining daily allowance. Includes OpenFoodFacts search and custom portion controls.
+- **Progress & Analytics** tracks your volume load trends over time, calculates estimated one-rep maxes (e1RM), and breaks down volume across muscle groups (Chest, Back, Legs, Shoulders, Arms, Core).
 
-The project follows a clean, modular structure separating data layers, business services, and presentation widgets:
+The home screen provides a single daily hub showing your current workout streak, weekly target progress, active workout drafts, and your most recent sessions.
 
-```
-flutter_application_1/
-├── android/                   # Native Android configuration (release keystore, manifest)
-├── lib/
-│   ├── core/
-│   │   ├── databases/         # Drift SQLite schema (sessions, sets, foods, routines, profiles)
-│   │   ├── repositories/      # Data access layer for food, meals, user profile
-│   │   ├── services/          # Core domain services (workout draft, backup, streak, nutrition)
-│   │   ├── theme/             # Global light and dark design system tokens
-│   │   └── utils/             # Math calculators (e1RM, calories, duration formatters)
-│   ├── helper/                # First-launch detection and preference managers
-│   ├── models/                # Domain data models, score results, and DTOs
-│   ├── presentation/
-│   │   ├── AppBars/           # Custom top app bars
-│   │   ├── screen/
-│   │   │   ├── Home_and_Main/ # Dashboard, streak summary, recent sessions
-│   │   │   ├── MealPrep/      # Meal logging, macro counters, food search
-│   │   │   ├── UserProfile/   # Body metrics, target goals, and preferences
-│   │   │   └── ...            # Active workout, routine editor, workout history
-│   │   └── widgets/           # Shared reusable UI components
-│   └── main.dart              # Application entry point and database initialization
-└── test/                      # Unit and widget tests
-```
+## Privacy
 
----
+All data is stored locally on your device in an SQLite database using Drift. Your body weight, workout logs, routines, and meal entries never leave your device.
 
-## Getting Started
+There are no remote accounts, no email requirements, no analytics SDKs, and no background tracking.
 
-### Prerequisites
-
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) (version `>=3.22.0`)
-- [Dart SDK](https://dart.dev/get-dart) (version `^3.4.0`)
-- Android Studio / VS Code with Flutter extension
-- Android SDK (API level 30 or newer recommended)
-
-### Local Setup
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/felixilars/Aegymer.git
-   cd Aegymer/flutter_application_1
-   ```
-
-2. **Install project dependencies:**
-   ```bash
-   flutter pub get
-   ```
-
-3. **Generate Drift Database code (if modifying schemas):**
-   ```bash
-   dart run build_runner build --delete-conflicting-outputs
-   ```
-
-4. **Run the development app:**
-   ```bash
-   flutter run
-   ```
-
----
-
-## Building Release APK
-
-To produce a production release APK for Android devices:
-
-```bash
-cd flutter_application_1
-flutter build apk --release
-```
-
-The compiled APK will be generated at:
-```
-flutter_application_1/build/app/outputs/flutter-apk/app-release.apk
-```
-
-> **Note on Updates**: Ensure your signing keystore (`key.properties` and `.jks`) remains consistent across builds and increment the `versionCode` in `pubspec.yaml` (e.g., `1.0.1+2`) so Android can install updates smoothly over existing installations without losing local database records.
-
----
+An export/import feature in the settings allows you to export your complete database to a JSON file at any time to back up or migrate to another device.
 
 ## Contributing
 
-Contributions, issues, and feature suggestions are welcome!
-Feel free to open an issue or submit a pull request on [GitHub](https://github.com/felixilars/Aegymer).
+Contributions and pull requests are welcome. Feel free to open an issue or fork the repository and submit a pull request.
 
----
+## Development
+
+Requirements:
+
+- Flutter SDK, stable channel `>=3.22.0`
+- Dart SDK `^3.12.0`
+- Android SDK (minSdk 21, targetSdk 34)
+
+```bash
+cd flutter_application_1
+flutter pub get
+
+# Run on connected device or emulator
+flutter run
+```
+
+Static checks and tests:
+
+```bash
+cd flutter_application_1
+flutter test
+```
+
+## Releasing
+
+To build a release APK for Android:
+
+```bash
+cd flutter_application_1
+
+# Bump version in pubspec.yaml (e.g., version: 1.0.1+2)
+flutter build apk --release
+```
+
+The resulting file is located at `build/app/outputs/flutter-apk/app-release.apk`.
+
+> **Note on Signing**: The release build uses `android/key.properties` and `android/app/upload-keystore.jks`. Never delete or lose this keystore file, as Android requires the same signature to install updates over existing installations.
+
+## Project structure
+
+```
+flutter_application_1/
+  lib/
+    main.dart                  # App bootstrap and database initialization
+    helper/
+      check_firsttime.dart     # First-launch detection and safe update migration
+    models/                    # Domain data models, macro calculations, DTOs
+    core/
+      databases/               # Drift SQLite schema, migrations, and companions
+      services/                # Background draft save, backup, streak, nutrition
+      repositories/            # Data access layer for food, meals, user profile
+      utils/                   # 1RM calculation, calorie estimates, time helpers
+      theme/                   # Design system tokens and light/dark theme
+    presentation/
+      AppBars/                 # Custom top navigation bars
+      screen/
+        Home_and_Main/         # Dashboard, streak cards, recent sessions
+        MealPrep/              # Meal tracking, macro progress, food search
+        UserProfile/           # Body metrics, target goals, preferences
+        active_workout_screen.dart     # In-progress workout logger with auto-save
+        edit_workout_session_screen.dart # Edit existing workout history records
+        workout_history_screen.dart    # Full chronological workout history
+        workout_launcher_screen.dart   # Routine selector & draft resumption
+        workout_progress_screen.dart   # Progress charts & 1RM analytics
+        welcome_screen.dart    # First-time onboarding introduction
+      widgets/                 # Shared UI cards, sheets, and popups
+```
+
+## Data sources
+
+- **Exercise Database**: Local curated exercise dataset with target muscle groups and tracking types.
+- **Nutrition Database**: Offline nutrition reference data integrated with the OpenFoodFacts API for extended food queries.
+- **Local Storage**: Local SQLite database via [Drift](https://drift.simonbinder.eu/) with automatic schema migrations.
 
 ## License
 

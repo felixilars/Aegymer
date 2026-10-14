@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' hide Column;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aegymer/core/databases/app_database.dart';
 import 'package:aegymer/core/utils/workout_cal.dart';
 import 'package:aegymer/core/services/sync_service.dart';
@@ -97,7 +98,103 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
 
   Timer? _timer;
   int _secondsElapsed = 0;
+  DateTime? _sessionStartTime;
   bool _isLoading = true;
+  SharedPreferences? _prefs;
+
+  Future<({String? mode, int? setCount, String? weightType})> _getSavedOrHistoricalOptions(
+    String exerciseId,
+  ) async {
+    _prefs ??= await SharedPreferences.getInstance();
+
+    final prefMode = _prefs?.getString('pref_ex_mode_$exerciseId');
+    final prefSets = _prefs?.getInt('pref_ex_sets_$exerciseId');
+    final prefWType = _prefs?.getString('pref_ex_wtype_$exerciseId');
+
+    if (prefMode != null && prefSets != null) {
+      return (mode: prefMode, setCount: prefSets, weightType: prefWType);
+    }
+
+    try {
+      final query = widget.db.select(widget.db.workoutSets).join([
+        innerJoin(
+          widget.db.workoutSessions,
+          widget.db.workoutSessions.id.equalsExp(widget.db.workoutSets.sessionId),
+        ),
+      ])
+        ..where(widget.db.workoutSets.exerciseId.equals(exerciseId))
+        ..orderBy([OrderingTerm.desc(widget.db.workoutSessions.date)]);
+
+      final rows = await query.get();
+      if (rows.isNotEmpty) {
+        final latestSessionId = rows.first.readTable(widget.db.workoutSets).sessionId;
+        final latestSets = rows
+            .map((r) => r.readTable(widget.db.workoutSets))
+            .where((s) => s.sessionId == latestSessionId)
+            .toList();
+
+        if (latestSets.isNotEmpty) {
+          final count = latestSets.length;
+          final first = latestSets.first;
+          final wType = first.weightType;
+
+          String inferredMode = 'weight_reps';
+          if (wType == 'added') {
+            inferredMode = 'bodyweight_weighted';
+          } else if (wType == 'assisted') {
+            inferredMode = 'bodyweight_assisted';
+          } else if (wType == 'bodyweight') {
+            inferredMode = 'bodyweight';
+          } else if (first.distance != null && (first.distance ?? 0.0) > 0) {
+            inferredMode = 'cardio_time';
+          } else if (first.durationSeconds != null &&
+              (first.durationSeconds ?? 0) > 0 &&
+              first.weight == 0 &&
+              first.reps == (first.durationSeconds ?? 0)) {
+            inferredMode = 'time_only';
+          }
+
+          final finalMode = prefMode ?? inferredMode;
+          final finalCount = prefSets ?? count;
+          final finalWType = prefWType ?? wType;
+
+          await _prefs?.setString('pref_ex_mode_$exerciseId', finalMode);
+          await _prefs?.setInt('pref_ex_sets_$exerciseId', finalCount);
+          if (finalWType != null) {
+            await _prefs?.setString('pref_ex_wtype_$exerciseId', finalWType);
+          }
+
+          return (
+            mode: finalMode,
+            setCount: finalCount,
+            weightType: finalWType,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error retrieving historical exercise options: $e');
+    }
+
+    return (mode: prefMode, setCount: prefSets, weightType: prefWType);
+  }
+
+  Future<void> _saveExerciseOptions({
+    required String exerciseId,
+    String? mode,
+    int? setCount,
+    String? weightType,
+  }) async {
+    _prefs ??= await SharedPreferences.getInstance();
+    if (mode != null) {
+      await _prefs!.setString('pref_ex_mode_$exerciseId', mode);
+    }
+    if (setCount != null && setCount > 0) {
+      await _prefs!.setInt('pref_ex_sets_$exerciseId', setCount);
+    }
+    if (weightType != null) {
+      await _prefs!.setString('pref_ex_wtype_$exerciseId', weightType);
+    }
+  }
   late DateTime _workoutDate = widget.initialDate ?? DateTime.now();
 
   bool get _isPastDate {
@@ -197,10 +294,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   }
 
   void _startTimer() {
+    _sessionStartTime ??= DateTime.now();
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
+        final elapsed = DateTime.now().difference(_sessionStartTime!).inSeconds;
         setState(() {
-          _secondsElapsed++;
+          _secondsElapsed = elapsed;
           for (final key in _exerciseStopwatchRunning.keys) {
             if (_exerciseStopwatchRunning[key] == true) {
               _exerciseStopwatchSeconds[key] =
@@ -243,16 +343,24 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       _sessionExercises = [];
     }
 
+    _prefs = await SharedPreferences.getInstance();
+
     // 4. Init sets and tracking types
     for (final ex in _sessionExercises) {
-      final initialType = WorkoutCalculator.normalizeTrackingType(
-        ex.trackingType,
-        name: ex.name,
-        targetMuscle: ex.targetMuscle,
-        equipment: ex.equipment,
-      );
+      final opts = await _getSavedOrHistoricalOptions(ex.id);
+      final initialType = opts.mode ??
+          WorkoutCalculator.normalizeTrackingType(
+            ex.trackingType,
+            name: ex.name,
+            targetMuscle: ex.targetMuscle,
+            equipment: ex.equipment,
+          );
       _activeTrackingTypes[ex.id] = initialType;
-      _initSetsForExercise(ex);
+      _initSetsForExercise(
+        ex,
+        explicitSetCount: opts.setCount,
+        explicitWeightType: opts.weightType,
+      );
     }
 
     setState(() {
@@ -260,21 +368,50 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     });
   }  
   
-  void _initSetsForExercise(Exercise ex) {
+  void _initSetsForExercise(
+    Exercise ex, {
+    int? explicitSetCount,
+    String? explicitWeightType,
+  }) {
     final String trackingType = _activeTrackingTypes[ex.id] ?? 'weight_reps';
     final double initW = WorkoutCalculator.getDefaultInputWeight(trackingType);
-    final int defaultSetsCount = (trackingType == 'cardio_time') ? 1 : 3;
 
-    String wType = 'standard';
+    int setsCount;
+    if (explicitSetCount != null && explicitSetCount > 0) {
+      setsCount = explicitSetCount;
+    } else if (_prefs != null && _prefs!.containsKey('pref_ex_sets_${ex.id}')) {
+      setsCount = _prefs!.getInt('pref_ex_sets_${ex.id}') ??
+          ((trackingType == 'cardio_time') ? 1 : 3);
+      if (setsCount <= 0) setsCount = 1;
+    } else {
+      setsCount = (trackingType == 'cardio_time') ? 1 : 3;
+    }
+
+    String wType = explicitWeightType ?? 'standard';
     if (trackingType == 'bodyweight') {
       wType = 'bodyweight';
     } else if (trackingType == 'bodyweight_weighted') {
-      wType = 'added';
+      wType = explicitWeightType ?? _prefs?.getString('pref_ex_wtype_${ex.id}') ?? 'added';
+      if (wType != 'bodyweight' && wType != 'added') {
+        wType = 'added';
+      }
     } else if (trackingType == 'bodyweight_assisted') {
-      wType = 'assisted';
+      wType = explicitWeightType ?? _prefs?.getString('pref_ex_wtype_${ex.id}') ?? 'assisted';
+      if (wType != 'bodyweight' && wType != 'assisted') {
+        wType = 'assisted';
+      }
+    } else {
+      wType = 'standard';
     }
 
-    _exerciseSets[ex.id] = List.generate(defaultSetsCount, (index) {
+    final oldSets = _exerciseSets[ex.id];
+    if (oldSets != null) {
+      for (final s in oldSets) {
+        s.dispose();
+      }
+    }
+
+    _exerciseSets[ex.id] = List.generate(setsCount, (index) {
       int baseR = 10;
       int baseDuration = 0;
       double baseDistance = 0.0;
@@ -343,6 +480,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         ),
       ];
     });
+    _saveExerciseOptions(
+      exerciseId: exerciseId,
+      setCount: _exerciseSets[exerciseId]?.length,
+    );
   }
 
   void _removeLastSet(String exerciseId) {
@@ -354,6 +495,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       _exerciseSets[exerciseId] = List.from(sets)..removeLast();
       removed.dispose();
     });
+    _saveExerciseOptions(
+      exerciseId: exerciseId,
+      setCount: _exerciseSets[exerciseId]?.length,
+    );
   }
 
   void _removeExerciseFromSession(Exercise ex) {
@@ -457,7 +602,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     );
   }
 
-  void _performReplaceExercise(Exercise oldEx, Exercise newEx) {
+  Future<void> _performReplaceExercise(Exercise oldEx, Exercise newEx) async {
     if (oldEx.id == newEx.id) return;
     final index = _sessionExercises.indexWhere((e) => e.id == oldEx.id);
     if (index == -1) return;
@@ -471,6 +616,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       );
       return;
     }
+
+    final opts = await _getSavedOrHistoricalOptions(newEx.id);
+    if (!mounted) return;
 
     setState(() {
       final sets = _exerciseSets.remove(oldEx.id) ?? [];
@@ -487,14 +635,19 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       _activeTrackingTypes.remove(oldEx.id);
 
       _sessionExercises[index] = newEx;
-      final initialType = WorkoutCalculator.normalizeTrackingType(
-        newEx.trackingType,
-        name: newEx.name,
-        targetMuscle: newEx.targetMuscle,
-        equipment: newEx.equipment,
-      );
+      final initialType = opts.mode ??
+          WorkoutCalculator.normalizeTrackingType(
+            newEx.trackingType,
+            name: newEx.name,
+            targetMuscle: newEx.targetMuscle,
+            equipment: newEx.equipment,
+          );
       _activeTrackingTypes[newEx.id] = initialType;
-      _initSetsForExercise(newEx);
+      _initSetsForExercise(
+        newEx,
+        explicitSetCount: opts.setCount,
+        explicitWeightType: opts.weightType,
+      );
       _currentPageIndex = index;
     });
 
@@ -674,15 +827,24 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       final setsNeedingDuration = setsCompanions
           .where((s) => !s.durationSeconds.present || s.durationSeconds.value == null || s.durationSeconds.value == 0)
           .length;
+
+      // In real-world strength training, each set (work + recovery rest) averages 90-120 seconds.
+      // If elapsed time is very small (e.g. quick entry or past date log), estimate 90s per set minimum
+      // so calories are not artificially deflated by an unrealistically tiny duration.
+      final minExpectedDuration = setsNeedingDuration * 90;
+      final int effectiveSessionSeconds = (_isPastDate || _secondsElapsed < minExpectedDuration)
+          ? max(_secondsElapsed, minExpectedDuration)
+          : _secondsElapsed;
+
       final avgDuration = setsNeedingDuration > 0
-          ? (_secondsElapsed > 0 ? _secondsElapsed ~/ setsNeedingDuration : 60)
-          : 0;
+          ? (effectiveSessionSeconds ~/ setsNeedingDuration)
+          : 90;
 
       final finalCompanions = setsCompanions.map((set) {
         if (!set.durationSeconds.present || set.durationSeconds.value == null || set.durationSeconds.value == 0) {
           return set.copyWith(
             sessionId: Value(sessionId),
-            durationSeconds: Value(avgDuration > 0 ? avgDuration : 60),
+            durationSeconds: Value(avgDuration > 0 ? avgDuration : 90),
           );
         }
         return set.copyWith(sessionId: Value(sessionId));
@@ -696,6 +858,26 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       );
 
       StreakService.notifyWorkoutUpdated();
+
+      for (final ex in _sessionExercises) {
+        final sets = _exerciseSets[ex.id] ?? [];
+        if (sets.isNotEmpty) {
+          final activeType = _activeTrackingTypes[ex.id] ??
+              WorkoutCalculator.normalizeTrackingType(
+                ex.trackingType,
+                name: ex.name,
+                targetMuscle: ex.targetMuscle,
+                equipment: ex.equipment,
+              );
+          final wType = sets.first.weightType;
+          await _saveExerciseOptions(
+            exerciseId: ex.id,
+            mode: activeType,
+            setCount: sets.length,
+            weightType: wType,
+          );
+        }
+      }
 
       double totalVolume = 0.0;
       double totalDistance = 0.0;
@@ -712,14 +894,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
 
         final ex = exMap[companion.exerciseId.value];
         final exName = ex?.name ?? '';
-        final tType = WorkoutCalculator.normalizeTrackingType(
-          ex?.trackingType,
-          name: exName,
-          targetMuscle: ex?.targetMuscle ?? '',
-          equipment: ex?.equipment ?? '',
-        );
+        final tType = _activeTrackingTypes[companion.exerciseId.value] ??
+            WorkoutCalculator.normalizeTrackingType(
+              ex?.trackingType,
+              name: exName,
+              targetMuscle: ex?.targetMuscle ?? '',
+              equipment: ex?.equipment ?? '',
+            );
 
-        final dur = companion.durationSeconds.present ? (companion.durationSeconds.value ?? 60) : 60;
+        final dur = companion.durationSeconds.present
+            ? (companion.durationSeconds.value ?? avgDuration)
+            : avgDuration;
         final cal = WorkoutCalculator.calculateSetCalories(
           exerciseName: exName,
           targetMuscle: ex?.targetMuscle ?? '',
@@ -738,7 +923,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         await _showPostWorkoutSummaryDialog(
           totalVolume: totalVolume,
           totalSets: finalCompanions.length,
-          durationSeconds: _secondsElapsed,
+          durationSeconds: _secondsElapsed > 0 ? _secondsElapsed : effectiveSessionSeconds,
           totalCalories: totalBurnedCalories,
           totalDistance: totalDistance,
         );
@@ -1985,6 +2170,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                 setState(() {
                   localSet.weightType = val;
                 });
+                _saveExerciseOptions(
+                  exerciseId: exerciseId,
+                  weightType: val,
+                );
               }
             },
           ),
@@ -2136,11 +2325,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       selected: isSelected,
       onSelected: (val) {
         if (val) {
+          final currentSetsCount = _exerciseSets[ex.id]?.length;
           setState(() {
             _activeTrackingTypes[ex.id] = type;
-            // Re-initialize sets layout for this exercise
-            _initSetsForExercise(ex);
+            // Re-initialize sets layout for this exercise preserving set count
+            _initSetsForExercise(ex, explicitSetCount: currentSetsCount);
           });
+          _saveExerciseOptions(
+            exerciseId: ex.id,
+            mode: type,
+            setCount: currentSetsCount,
+          );
           setModalState(() {});
         }
       },
@@ -2260,18 +2455,25 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         return _AddExerciseSheet(
           allExercises: _allAvailableExercises,
           currentSessionExercises: _sessionExercises,
-          onExerciseAdded: (ex) {
+          onExerciseAdded: (ex) async {
+            final opts = await _getSavedOrHistoricalOptions(ex.id);
+            if (!mounted) return;
             setState(() {
               if (!_sessionExercises.any((e) => e.id == ex.id)) {
                 _sessionExercises.add(ex);
-                final initialType = WorkoutCalculator.normalizeTrackingType(
-                  ex.trackingType,
-                  name: ex.name,
-                  targetMuscle: ex.targetMuscle,
-                  equipment: ex.equipment,
-                );
+                final initialType = opts.mode ??
+                    WorkoutCalculator.normalizeTrackingType(
+                      ex.trackingType,
+                      name: ex.name,
+                      targetMuscle: ex.targetMuscle,
+                      equipment: ex.equipment,
+                    );
                 _activeTrackingTypes[ex.id] = initialType;
-                _initSetsForExercise(ex);
+                _initSetsForExercise(
+                  ex,
+                  explicitSetCount: opts.setCount,
+                  explicitWeightType: opts.weightType,
+                );
               }
               _currentPageIndex = _sessionExercises.length - 1;
             });

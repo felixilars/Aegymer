@@ -137,33 +137,61 @@ class WorkoutCalculator {
         trackingType == 'bodyweight_assisted' ||
         equipment.toLowerCase() == 'bodyweight') {
       if (reps <= 0 && durationSeconds <= 0) return 0.0;
-      double met = 4.5;
+      double met = 5.0;
       if (nameLower.contains('pull-up') ||
+          nameLower.contains('pull up') ||
           nameLower.contains('chin-up') ||
+          nameLower.contains('chin up') ||
           nameLower.contains('dip') ||
-          nameLower.contains('burpee')) {
-        met = 6.0;
+          nameLower.contains('burpee') ||
+          nameLower.contains('muscle-up')) {
+        met = 6.5;
+      } else if (nameLower.contains('push-up') ||
+          nameLower.contains('push up') ||
+          nameLower.contains('pushup') ||
+          nameLower.contains('squat') ||
+          nameLower.contains('lunge')) {
+        met = 5.5;
       }
       if (trackingType == 'bodyweight_weighted') met += 0.5;
 
-      final mins = durationMinutes > 0 ? durationMinutes : (reps > 0 ? reps * 0.05 : 1.0);
+      // Realistic set duration includes active lifting plus recovery/rest interval (~75-90s minimum)
+      final mins = max(durationMinutes, reps > 0 ? (reps * 0.05 + 0.8) : 1.25);
       final baseMetKcal = (met * 3.5 * bodyweightKg / 200.0) * mins;
-      final workKcal = (weight * reps) * 0.0005;
+
+      // Calculate effective load lifted if weight input is 0 (pure bodyweight)
+      final double effectiveLoad = weight > 0
+          ? weight
+          : getEffectiveWeight(
+              weightInput: 0.0,
+              weightType: 'bodyweight',
+              userBodyweight: bodyweightKg,
+              exerciseName: exerciseName,
+            );
+      // Mechanical work: ~0.006 kcal per (kg * rep) accounting for 20-22% muscle efficiency + eccentric work
+      final workKcal = (effectiveLoad * reps) * 0.0055;
       return baseMetKcal + workKcal;
     }
 
     // External resistance / weight training
     if (reps <= 0 && weight <= 0 && durationSeconds <= 0) return 0.0;
-    double met = 4.5;
+    double met = 5.0;
     if (nameLower.contains('deadlift') ||
         nameLower.contains('squat') ||
         nameLower.contains('bench press') ||
+        nameLower.contains('overhead press') ||
+        nameLower.contains('clean') ||
+        nameLower.contains('snatch') ||
+        nameLower.contains('thruster') ||
+        nameLower.contains('row') ||
         equipment.toLowerCase().contains('barbell')) {
       met = 6.0;
     }
-    final mins = durationMinutes > 0 ? durationMinutes : (reps > 0 ? reps * 0.05 : 1.0);
+    // Realistic set duration includes active work plus recovery/rest interval (~75-90s minimum)
+    final mins = max(durationMinutes, reps > 0 ? (reps * 0.05 + 0.8) : 1.25);
     final baseMetKcal = (met * 3.5 * bodyweightKg / 200.0) * mins;
-    final workKcal = (weight * reps) * 0.0005;
+    // Mechanical work: ~0.006 kcal per (kg * rep) based on displacement and muscle efficiency
+    final workKcal = (weight * reps) * 0.006;
     return baseMetKcal + workKcal;
   }
 

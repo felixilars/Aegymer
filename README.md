@@ -77,7 +77,6 @@ Requirements:
 - Android SDK (minSdk 21, targetSdk 34)
 
 ```bash
-cd flutter_application_1
 flutter pub get
 
 # Run on connected device or emulator
@@ -87,7 +86,6 @@ flutter run
 Static checks and tests:
 
 ```bash
-cd flutter_application_1
 flutter test
 ```
 
@@ -96,8 +94,6 @@ flutter test
 To build a release APK for Android:
 
 ```bash
-cd flutter_application_1
-
 # Bump version in pubspec.yaml (e.g., version: 1.0.1+2)
 flutter build apk --release
 ```
@@ -109,7 +105,7 @@ The resulting file is located at `build/app/outputs/flutter-apk/app-release.apk`
 ## Project structure
 
 ```
-flutter_application_1/
+Aegymer/
   lib/
     main.dart                  # App bootstrap and database initialization
     helper/

@@ -57,7 +57,7 @@ Open pull requests on GitHub with `main` as the target branch. A pull request mu
 Before requesting review:
 
 - Rebase or merge the latest `main` when needed and resolve conflicts locally.
-- Run the relevant checks: `flutter test` inside `flutter_application_1`.
+- Run the relevant checks: `flutter test`.
 - If modifying database schemas in `lib/core/databases/`, run `dart run build_runner build --delete-conflicting-outputs` to regenerate Drift files, increment `schemaVersion`, and add an `onUpgrade` migration step.
 - Keep generated build artifacts (`build/`), credentials (`key.properties`), signing keys (`*.jks`), and personal data out of commits.
 

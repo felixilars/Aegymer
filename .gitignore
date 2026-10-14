@@ -7,6 +7,9 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+*.iml
+*.ipr
+*.iws
 
 # Project temporary & context files
 CONTEXT.md
@@ -22,9 +25,12 @@ tmpreadme.md
 *.keystore
 *.jks
 key.properties
+local.properties
+**/local.properties
 
 # Flutter / Dart build outputs
 .dart_tool/
+.dart-tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/

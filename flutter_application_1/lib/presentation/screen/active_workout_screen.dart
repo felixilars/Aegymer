@@ -957,7 +957,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   }) async {
     final List<Widget> statWidgets = [
       _buildSummaryStat('Duration', _formatDuration(durationSeconds), Icons.timer, Theme.of(context).colorScheme.primary),
-      _buildSummaryStat('Burned', '${totalCalories.round()} kcal', Icons.local_fire_department, Colors.orange),
+      _buildSummaryStat('Burned', WorkoutCalculator.formatCalories(totalCalories), Icons.local_fire_department, Colors.orange),
     ];
 
     if (totalDistance > 0) {
@@ -1320,7 +1320,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title & Action Buttons
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1344,6 +1343,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                 ),
               ),
               IconButton(
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                padding: const EdgeInsets.all(6),
                 icon: Icon(
                   Icons.help_outline,
                   color: Theme.of(context).colorScheme.primary,
@@ -1355,11 +1357,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                 ),
               ),
               IconButton(
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                padding: const EdgeInsets.all(6),
                 icon: const Icon(Icons.swap_horiz_rounded, color: Colors.blue),
                 tooltip: 'Replace Exercise',
                 onPressed: () => _replaceExerciseInSession(ex),
               ),
               IconButton(
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                padding: const EdgeInsets.all(6),
                 icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
                 tooltip: 'Remove Exercise from Workout',
                 onPressed: () => _removeExerciseFromSession(ex),
@@ -1368,7 +1376,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           ),
           const SizedBox(height: 16.0),
 
-          // Timer and Tracking Mode Selector Row
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -1376,7 +1383,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             runSpacing: 8,
             children: [
               _buildTrackingTypeSelectorButton(ex),
-              // Exercise stopwatch
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -1438,13 +1444,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           ),
           const SizedBox(height: 16.0),
 
-          // Barbell Calculator checkbox
           if (activeType == 'weight_reps') ...[
             _buildBarbellOptions(ex.id),
             const SizedBox(height: 16.0),
           ],
 
-          // Bodyweight & Tonnage Options
           if (activeType == 'bodyweight' ||
               activeType == 'bodyweight_weighted' ||
               activeType == 'bodyweight_assisted') ...[
@@ -1452,16 +1456,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
             const SizedBox(height: 16.0),
           ],
 
-          // Cardio Options
           if (activeType == 'cardio_time') ...[
             _buildCardioOptions(ex),
             const SizedBox(height: 16.0),
           ],
 
-          // Excel Grid Header
           _buildTableHeader(ex.id, isDark),
 
-          // Excel Grid Rows
           if (sets.isEmpty)
             Container(
               width: double.infinity,
@@ -1561,18 +1562,38 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           ),
           const SizedBox(height: 20.0),
           Center(
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: const BorderSide(color: Colors.red),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 10,
+              children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    side: const BorderSide(color: Colors.blue),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                  onPressed: () => _replaceExerciseInSession(ex),
+                  icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                  label: const Text('Replace Exercise'),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-              onPressed: () => _removeExerciseFromSession(ex),
-              icon: const Icon(Icons.delete_outline, size: 18),
-              label: const Text('Remove Exercise from Workout'),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                  onPressed: () => _removeExerciseFromSession(ex),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Remove Exercise'),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 32.0),
@@ -1902,7 +1923,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                     const Icon(Icons.local_fire_department, size: 14, color: Colors.orange),
                     const SizedBox(width: 4),
                     Text(
-                      '~${estimatedCalories.round()} kcal',
+                      '~${WorkoutCalculator.formatCalories(estimatedCalories)}',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -2843,14 +2864,23 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    widget.sheetTitle ?? 'Add Exercise to Session',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  Expanded(
+                    child: Text(
+                      widget.sheetTitle ?? 'Add Exercise to Session',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: _createNewCustomExercise,
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(Icons.add, size: 18),
                     label: const Text('Create New'),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
                   ),
                 ],
               ),
@@ -2918,6 +2948,7 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
                               .any((e) => e.id == ex.id);
 
                           return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12.0),
                             leading: Icon(
                               isAlreadyAdded
                                   ? Icons.check_circle
@@ -2941,8 +2972,12 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  padding: const EdgeInsets.all(4),
                                   icon: Icon(
                                     Icons.info_outline,
+                                    size: 20,
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.primary,
@@ -2956,10 +2991,13 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
                                 ),
                                 if (ex.isCustom)
                                   IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                    padding: const EdgeInsets.all(4),
                                     icon: const Icon(
                                       Icons.delete_outline,
                                       color: Colors.redAccent,
-                                      size: 20,
+                                      size: 18,
                                     ),
                                     tooltip: 'Delete custom exercise',
                                     onPressed: () =>
@@ -2968,10 +3006,13 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
                                 if (isAlreadyAdded &&
                                     widget.onExerciseRemoved != null)
                                   IconButton(
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                    padding: const EdgeInsets.all(4),
                                     icon: const Icon(
                                       Icons.remove_circle_outline,
                                       color: Colors.red,
-                                      size: 22,
+                                      size: 20,
                                     ),
                                     tooltip: 'Remove from session',
                                     onPressed: () {
@@ -2980,11 +3021,15 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
                                     },
                                   )
                                 else
-                                  Icon(
-                                    isAlreadyAdded
-                                        ? Icons.done
-                                        : Icons.add_circle_outline,
-                                    color: isAlreadyAdded ? Colors.green : null,
+                                  Padding(
+                                    padding: const EdgeInsets.all(4.0),
+                                    child: Icon(
+                                      isAlreadyAdded
+                                          ? Icons.done
+                                          : Icons.add_circle_outline,
+                                      size: 20,
+                                      color: isAlreadyAdded ? Colors.green : null,
+                                    ),
                                   ),
                               ],
                             ),

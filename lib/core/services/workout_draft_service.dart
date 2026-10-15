@@ -134,8 +134,8 @@ class WorkoutDraftService {
         setsCompanions: companions,
       );
 
-      StreakService.notifyWorkoutUpdated();
       await clearDraft();
+      StreakService.notifyWorkoutUpdated();
       return true;
     } catch (e) {
       debugPrint('Error saving draft directly: $e');

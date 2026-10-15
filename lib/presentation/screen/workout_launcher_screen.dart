@@ -3,6 +3,7 @@ import 'package:aegymer/core/databases/app_database.dart';
 import 'package:aegymer/presentation/screen/routine_editor_screen.dart';
 import 'package:aegymer/presentation/screen/active_workout_screen.dart';
 import 'package:aegymer/core/services/workout_draft_service.dart';
+import 'package:aegymer/core/services/streak_service.dart';
 
 class WorkoutLauncherScreen extends StatefulWidget {
   final AppDatabase db;
@@ -22,6 +23,19 @@ class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
   void initState() {
     super.initState();
     _loadRoutines();
+    StreakService.workoutUpdateNotifier.addListener(_onWorkoutUpdated);
+  }
+
+  @override
+  void dispose() {
+    StreakService.workoutUpdateNotifier.removeListener(_onWorkoutUpdated);
+    super.dispose();
+  }
+
+  void _onWorkoutUpdated() {
+    if (mounted) {
+      _loadRoutines();
+    }
   }
 
   Future<void> _loadRoutines() async {

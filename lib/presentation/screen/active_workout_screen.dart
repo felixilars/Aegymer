@@ -114,6 +114,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
   int _secondsElapsed = 0;
   DateTime? _sessionStartTime;
   bool _isLoading = true;
+  bool _isWorkoutFinished = false;
   SharedPreferences? _prefs;
 
   Future<({String? mode, int? setCount, String? weightType})> _getSavedOrHistoricalOptions(
@@ -311,6 +312,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_isWorkoutFinished) return;
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden) {
@@ -319,6 +321,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
   }
 
   Future<void> _saveCurrentDraft() async {
+    if (_isWorkoutFinished || !mounted || _isLoading) return;
     if (_sessionExercises.isEmpty) return;
 
     final setsData = <String, List<Map<String, dynamic>>>{};
@@ -941,6 +944,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
 
     if (confirm != true) return;
 
+    // Immediately stop timer and mark finished so auto-save timer does not re-save draft
+    _timer?.cancel();
+    _isWorkoutFinished = true;
+    await WorkoutDraftService.clearDraft();
+
     setState(() {
       _isLoading = true;
     });
@@ -981,8 +989,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
         setsCompanions: finalCompanions,
       );
 
-      StreakService.notifyWorkoutUpdated();
       await WorkoutDraftService.clearDraft();
+      StreakService.notifyWorkoutUpdated();
 
       for (final ex in _sessionExercises) {
         final sets = _exerciseSets[ex.id] ?? [];
@@ -1052,6 +1060,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
           totalCalories: totalBurnedCalories,
           totalDistance: totalDistance,
         );
+        await WorkoutDraftService.clearDraft();
+        StreakService.notifyWorkoutUpdated();
         Navigator.of(context).pop(true);
       }
     } catch (e) {
@@ -1278,8 +1288,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
           await _saveCurrentDraft();
           if (mounted) Navigator.of(context).pop();
         } else if (action == 'discard') {
+          _timer?.cancel();
+          _isWorkoutFinished = true;
           await WorkoutDraftService.clearDraft();
-          if (mounted) Navigator.of(context).pop();
+          StreakService.notifyWorkoutUpdated();
+          if (mounted) Navigator.of(context).pop(true);
         }
       },
       child: Scaffold(
@@ -1294,8 +1307,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
                 await _saveCurrentDraft();
                 if (mounted) Navigator.of(context).pop();
               } else if (action == 'discard') {
+                _timer?.cancel();
+                _isWorkoutFinished = true;
                 await WorkoutDraftService.clearDraft();
-                if (mounted) Navigator.of(context).pop();
+                StreakService.notifyWorkoutUpdated();
+                if (mounted) Navigator.of(context).pop(true);
               }
             },
           ),

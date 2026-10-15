@@ -1,7 +1,11 @@
+<p align="center">
+  <img src="assets/images/logo.png" alt="Aegymer Logo" width="128" />
+</p>
+
 # Aegymer
 
 [![Release APK](https://img.shields.io/badge/Release-APK%20v1.0.0-2563EB?style=flat-square&logo=android&logoColor=white)](https://github.com/felixilars/Aegymer/releases/latest)
-[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Desktop-38BDF8?style=flat-square)](https://flutter.dev)
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-38BDF8?style=flat-square)](https://flutter.dev)
 [![Database](https://img.shields.io/badge/Database-SQLite%20(Drift)-10B981?style=flat-square)](https://drift.simonbinder.eu/)
 [![Machine Learning](https://img.shields.io/badge/Machine%20Learning-On--Device%20KNN-8B5CF6?style=flat-square)](#what-it-does)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Offline--First-F97316?style=flat-square)](#privacy)

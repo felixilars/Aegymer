@@ -20,6 +20,7 @@ tmp*
 *.tmp
 *.temp
 tmpreadme.md
+Selfie*.png
 
 # Secrets and credentials
 .env

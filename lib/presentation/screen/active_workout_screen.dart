@@ -1199,29 +1199,62 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+        contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        actionsOverflowButtonSpacing: 8,
         title: const Row(
           children: [
-            Icon(Icons.pause_circle_outline_rounded, color: Colors.amber),
-            SizedBox(width: 8),
-            Text('Workout in Progress'),
+            Icon(Icons.pause_circle_outline_rounded, color: Colors.amber, size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Workout in Progress',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
+              ),
+            ),
           ],
         ),
         content: const Text(
           'You have an ongoing workout. What would you like to do before leaving?',
+          style: TextStyle(fontSize: 14, color: Colors.black87),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, 'discard'),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Discard'),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, 'finish'),
+              icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+              label: const Text('Finish & Save'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           ),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(ctx, 'leave'),
-            child: const Text('Save Draft & Exit'),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.pop(ctx, 'leave'),
+              icon: const Icon(Icons.bookmark_outline_rounded, size: 18),
+              label: const Text('Save Draft & Exit'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, 'finish'),
-            child: const Text('Finish & Save'),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: () => Navigator.pop(ctx, 'discard'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: const Text('Discard'),
+            ),
           ),
         ],
       ),

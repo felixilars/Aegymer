@@ -4,6 +4,7 @@ import 'package:aegymer/presentation/AppBars/RecordWorkoutAppBar.dart';
 import 'package:aegymer/presentation/screen/Home_and_Main/homepage.dart';
 import 'package:aegymer/presentation/screen/MealPrep/meal_prep_page.dart';
 import 'package:aegymer/presentation/screen/UserProfile/profile_page.dart';
+import 'package:aegymer/presentation/screen/settings_page.dart';
 import 'package:aegymer/presentation/screen/workout_launcher_screen.dart';
 import 'package:aegymer/presentation/screen/workout_progress_screen.dart';
 import 'package:aegymer/core/databases/app_database.dart';
@@ -13,7 +14,10 @@ import 'package:aegymer/core/services/sync_service.dart';
 import 'package:aegymer/core/services/streak_service.dart';
 
 class MainPage extends StatefulWidget {
-  const MainPage({super.key});
+  /// Optional database override (used by tests); defaults to the app singleton.
+  final AppDatabase? db;
+
+  const MainPage({super.key, this.db});
 
   @override
   State<MainPage> createState() => _MainPageState();
@@ -30,14 +34,24 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
 
-    _db = AppDatabase();
+    _db = widget.db ?? AppDatabase();
 
     _appbars = [
-      HomeAppBar(onProfilePressed: _openProfile),
+      HomeAppBar(
+        onProfilePressed: _openProfile,
+        onSettingsPressed: _openSettings,
+      ),
       const PreferredSize(preferredSize: Size.zero, child: SizedBox.shrink()),
       RecordWorkoutAppBar(onHomePressed: () => setState(() => _selectedIndex = 0)),
       const PreferredSize(preferredSize: Size.zero, child: SizedBox.shrink()),
     ];
+  }
+
+  @override
+  void dispose() {
+    // Only close a database this page owns; an injected one belongs to the caller.
+    if (widget.db == null) _db.close();
+    super.dispose();
   }
 
   Widget _buildTab(int index) {
@@ -65,6 +79,12 @@ class _MainPageState extends State<MainPage> {
   void _openProfile() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => ProfilePage(db: _db)),
+    );
+  }
+
+  void _openSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => SettingsPage(db: _db)),
     );
   }
 

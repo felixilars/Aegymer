@@ -5,6 +5,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:aegymer/core/databases/app_database.dart';
 import 'package:aegymer/core/utils/workout_cal.dart';
 import 'package:aegymer/core/services/streak_service.dart';
+import 'package:aegymer/core/utils/set_metrics.dart';
 
 class WorkoutProgressScreen extends StatefulWidget {
   final AppDatabase db;
@@ -73,7 +74,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
       String maxE1rmExName = 'Top Lift';
 
       for (var set in allSets) {
-        double currentE1RM = set.calculated1rm ?? WorkoutCalculator.calculateE1RM(set.weight, set.reps);
+        double currentE1RM = set.calculated1rm ?? WorkoutCalculator.calculateE1RM(set.loadKg, set.reps);
         if (currentE1RM > maxE1rm) {
           maxE1rm = currentE1RM;
           final matchEx = list.firstWhere((e) => e.id == set.exerciseId, orElse: () => list.isNotEmpty ? list.first : allExercises.first);
@@ -181,6 +182,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
         equipment: _selectedExercise!.equipment,
       );
       final bool isCardio = trackingType == 'cardio_time';
+      final bool isTimeOnly = trackingType == 'time_only';
 
       final sortedDates = grouped.keys.toList()..sort();
       for (final date in sortedDates) {
@@ -191,7 +193,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
           for (var set in sets) {
             final dist = set.distance ?? 0.0;
             totalDist += dist;
-            totalCal += WorkoutCalculator.calculateSetCalories(
+            totalCal += set.calories ?? WorkoutCalculator.calculateSetCalories(
               exerciseName: _selectedExercise!.name,
               targetMuscle: _selectedExercise!.targetMuscle,
               equipment: _selectedExercise!.equipment,
@@ -202,8 +204,26 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
             );
           }
           tempChartData.add({'date': date, 'e1rm': totalDist, 'volume': totalCal});
+        } else if (isTimeOnly) {
+          int maxDuration = 0;
+          double totalCal = 0.0;
+          for (var set in sets) {
+            final dur = (set.durationSeconds != null && set.durationSeconds! > 0)
+                ? set.durationSeconds!
+                : set.reps;
+            if (dur > maxDuration) maxDuration = dur;
+            totalCal += set.calories ?? WorkoutCalculator.calculateSetCalories(
+              exerciseName: _selectedExercise!.name,
+              targetMuscle: _selectedExercise!.targetMuscle,
+              equipment: _selectedExercise!.equipment,
+              trackingType: 'time_only',
+              bodyweightKg: userWeight,
+              durationSeconds: dur,
+            );
+          }
+          tempChartData.add({'date': date, 'e1rm': maxDuration.toDouble(), 'volume': totalCal});
         } else {
-          final weights = sets.map((s) => s.weight).toList();
+          final weights = sets.map((s) => s.loadKg).toList();
           final reps = sets.map((s) => s.reps).toList();
           final double volume = WorkoutCalculator.calculateVolume(weights, reps);
 
@@ -211,7 +231,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
           for (var set in sets) {
             double currentE1RM =
                 set.calculated1rm ??
-                WorkoutCalculator.calculateE1RM(set.weight, set.reps);
+                WorkoutCalculator.calculateE1RM(set.loadKg, set.reps);
             if (currentE1RM > maxE1RM) {
               maxE1RM = currentE1RM;
             }
@@ -238,26 +258,31 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
       }
 
       final Map<DateTime, List<WorkoutSet>> grouped = {};
+      final exIds = groupExercises.map((e) => e.id).toList();
 
-      for (final ex in groupExercises) {
-        final rawHistory = await widget.db.getRawExerciseHistory(ex.id);
-        for (final row in rawHistory) {
-          final session = row.readTable(widget.db.workoutSessions);
-          final set = row.readTable(widget.db.workoutSets);
+      final allRows = await (widget.db.select(widget.db.workoutSets).join([
+        innerJoin(
+          widget.db.workoutSessions,
+          widget.db.workoutSessions.id.equalsExp(widget.db.workoutSets.sessionId),
+        ),
+      ])
+        ..where(widget.db.workoutSets.exerciseId.isIn(exIds))
+        ..orderBy([OrderingTerm.asc(widget.db.workoutSessions.date)]))
+        .get();
 
-          final date = session.date;
-          final dateKey = DateTime(date.year, date.month, date.day);
-          if (!grouped.containsKey(dateKey)) {
-            grouped[dateKey] = [];
-          }
-          grouped[dateKey]!.add(set);
-        }
+      for (final row in allRows) {
+        final session = row.readTable(widget.db.workoutSessions);
+        final set = row.readTable(widget.db.workoutSets);
+
+        final date = session.date;
+        final dateKey = DateTime(date.year, date.month, date.day);
+        grouped.putIfAbsent(dateKey, () => []).add(set);
       }
 
       final sortedDates = grouped.keys.toList()..sort();
       for (final date in sortedDates) {
         final sets = grouped[date]!;
-        final weights = sets.map((s) => s.weight).toList();
+        final weights = sets.map((s) => s.loadKg).toList();
         final reps = sets.map((s) => s.reps).toList();
         final double volume = WorkoutCalculator.calculateVolume(weights, reps);
 
@@ -295,7 +320,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
       final sortedDates = grouped.keys.toList()..sort();
       for (final date in sortedDates) {
         final sets = grouped[date]!;
-        final weights = sets.map((s) => s.weight).toList();
+        final weights = sets.map((s) => s.loadKg).toList();
         final reps = sets.map((s) => s.reps).toList();
         final double volume = WorkoutCalculator.calculateVolume(weights, reps);
 
@@ -304,16 +329,17 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
     }
 
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     List<Map<String, dynamic>> filtered = tempChartData;
     if (_dateRange == 'Last 7 Days') {
+      final cutoff = today.subtract(const Duration(days: 7));
       filtered = tempChartData
-          .where((data) => now.difference(data['date'] as DateTime).inDays <= 7)
+          .where((data) => !(data['date'] as DateTime).isBefore(cutoff))
           .toList();
     } else if (_dateRange == 'Last 30 Days') {
+      final cutoff = today.subtract(const Duration(days: 30));
       filtered = tempChartData
-          .where(
-            (data) => now.difference(data['date'] as DateTime).inDays <= 30,
-          )
+          .where((data) => !(data['date'] as DateTime).isBefore(cutoff))
           .toList();
     }
 
@@ -489,15 +515,16 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
       if (volume > maxVolume) maxVolume = volume;
     }
 
-    final bool isCardio = _viewMode == 'Exercise' &&
-        _selectedExercise != null &&
-        (WorkoutCalculator.normalizeTrackingType(
-              _selectedExercise!.trackingType,
-              name: _selectedExercise!.name,
-              targetMuscle: _selectedExercise!.targetMuscle,
-              equipment: _selectedExercise!.equipment,
-            ) ==
-            'cardio_time');
+    final String trackingType = (_viewMode == 'Exercise' && _selectedExercise != null)
+        ? WorkoutCalculator.normalizeTrackingType(
+            _selectedExercise!.trackingType,
+            name: _selectedExercise!.name,
+            targetMuscle: _selectedExercise!.targetMuscle,
+            equipment: _selectedExercise!.equipment,
+          )
+        : 'weight_reps';
+    final bool isCardio = trackingType == 'cardio_time';
+    final bool isTimeOnly = trackingType == 'time_only';
 
     return Scaffold(
       appBar: AppBar(
@@ -628,7 +655,7 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
                                   return DropdownMenuItem<Exercise>(
                                     value: ex,
                                     child: Text(
-                                      "${ex.name} (${ex.targetMuscle})",
+                                      ex.name,
                                       overflow: TextOverflow.ellipsis,
                                       maxLines: 1,
                                     ),
@@ -761,14 +788,26 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
                     Row(
                       children: [
                         Icon(
-                          isCardio ? Icons.directions_run : Icons.fitness_center,
-                          color: isCardio ? Colors.blueAccent : Theme.of(context).colorScheme.primary,
+                          isCardio
+                              ? Icons.directions_run
+                              : (isTimeOnly
+                                  ? Icons.timer_outlined
+                                  : Icons.fitness_center),
+                          color: isCardio
+                              ? Colors.blueAccent
+                              : (isTimeOnly
+                                  ? Colors.teal
+                                  : Theme.of(context).colorScheme.primary),
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            isCardio ? "Total Distance (km)" : "Estimated 1 Rep Max (E1RM)",
+                            isCardio
+                                ? "Total Distance (km)"
+                                : (isTimeOnly
+                                    ? "Max Hold Duration (seconds)"
+                                    : "Estimated 1 Rep Max (E1RM)"),
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -780,11 +819,25 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
                     ),
                     const SizedBox(height: 12),
                     _buildLineChart(
-                      title: isCardio ? "Distance (km)" : "Estimated 1RM (kg)",
-                      yAxisLabel: isCardio ? "km" : "kg",
+                      title: isCardio
+                          ? "Distance (km)"
+                          : (isTimeOnly
+                              ? "Hold Time (s)"
+                              : "Estimated 1RM (kg)"),
+                      yAxisLabel: isCardio
+                          ? "km"
+                          : (isTimeOnly ? "s" : "kg"),
                       spots: e1rmSpots,
-                      lineColor: isCardio ? Colors.blueAccent : Theme.of(context).colorScheme.primary,
-                      gradientColor: isCardio ? Colors.blueAccent : Theme.of(context).colorScheme.primary,
+                      lineColor: isCardio
+                          ? Colors.blueAccent
+                          : (isTimeOnly
+                              ? Colors.teal
+                              : Theme.of(context).colorScheme.primary),
+                      gradientColor: isCardio
+                          ? Colors.blueAccent
+                          : (isTimeOnly
+                              ? Colors.tealAccent
+                              : Theme.of(context).colorScheme.primary),
                       minY: minE1rm,
                       maxY: maxE1rm,
                     ),
@@ -794,14 +847,18 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
                   Row(
                     children: [
                       Icon(
-                        isCardio ? Icons.local_fire_department : Icons.stacked_bar_chart,
-                        color: isCardio ? Colors.orange : Colors.amber.shade700,
+                        (isCardio || isTimeOnly)
+                            ? Icons.local_fire_department
+                            : Icons.stacked_bar_chart,
+                        color: (isCardio || isTimeOnly)
+                            ? Colors.orange
+                            : Colors.amber.shade700,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          isCardio
+                          (isCardio || isTimeOnly)
                               ? "Calories Burned (kcal)"
                               : (_viewMode == 'Exercise'
                                   ? "Total Volume Load"
@@ -819,11 +876,17 @@ class _WorkoutProgressScreenState extends State<WorkoutProgressScreen> {
                   ),
                   const SizedBox(height: 12),
                   _buildLineChart(
-                    title: isCardio ? "Calories (kcal)" : "Volume Load (kg)",
-                    yAxisLabel: isCardio ? "kcal" : "kg",
+                    title: (isCardio || isTimeOnly)
+                        ? "Calories (kcal)"
+                        : "Volume Load (kg)",
+                    yAxisLabel: (isCardio || isTimeOnly) ? "kcal" : "kg",
                     spots: volumeSpots,
-                    lineColor: isCardio ? Colors.orange : Colors.amber.shade700,
-                    gradientColor: isCardio ? Colors.orangeAccent : Colors.amber,
+                    lineColor: (isCardio || isTimeOnly)
+                        ? Colors.orange
+                        : Colors.amber.shade700,
+                    gradientColor: (isCardio || isTimeOnly)
+                        ? Colors.orangeAccent
+                        : Colors.amber,
                     minY: minVolume,
                     maxY: maxVolume,
                   ),
@@ -875,7 +938,7 @@ class _PRTrophyShelf extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: records.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (context, idx) {
               final pr = records[idx];
               return Container(

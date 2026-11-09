@@ -6,6 +6,8 @@ import 'package:aegymer/core/databases/app_database.dart';
 import 'package:aegymer/core/utils/workout_cal.dart';
 import 'package:aegymer/core/services/streak_service.dart';
 import 'package:aegymer/presentation/screen/edit_workout_session_screen.dart';
+import 'package:aegymer/core/utils/workout_session_helper.dart';
+import 'package:aegymer/core/utils/set_metrics.dart';
 
 class RecentSessionPopup extends StatefulWidget {
   final WorkoutSession session;
@@ -25,6 +27,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
   late WorkoutSession _session;
   List<ExerciseWithSets> _exerciseGroups = [];
   double _userWeight = 70.0;
+  String? _sessionTitle;
   bool _loading = true;
 
   @override
@@ -71,9 +74,18 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
       map[exercise.id]!.sets.add(set);
     }
 
+    final title = await WorkoutSessionHelper.resolveSessionName(
+      session: _session,
+      db: widget.db,
+      sessionExerciseIds: map.values.map((g) => g.exercise.id).toList(),
+    );
+
+    if (!mounted) return;
+
     setState(() {
       _userWeight = profileWeight > 0 ? profileWeight : 70.0;
       _exerciseGroups = map.values.toList();
+      _sessionTitle = title;
       _loading = false;
     });
   }
@@ -183,7 +195,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
             equipment: ex.equipment,
           );
 
-    return WorkoutCalculator.calculateSetCalories(
+    return s.calories ?? WorkoutCalculator.calculateSetCalories(
       exerciseName: ex.name,
       targetMuscle: ex.targetMuscle,
       equipment: ex.equipment,
@@ -210,7 +222,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
     double total = 0.0;
     for (final group in _exerciseGroups) {
       for (final s in group.sets) {
-        total += (s.weight * s.reps);
+        total += (s.loadKg * s.reps);
       }
     }
     return total;
@@ -263,7 +275,7 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Workout Details',
+                        _sessionTitle ?? 'Workout Details',
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           fontSize: 20,
@@ -577,39 +589,43 @@ class _RecentSessionPopupState extends State<RecentSessionPopup> {
                 ),
               ),
 
-            if (_exerciseGroups.isNotEmpty && _session.notes != null && _session.notes!.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: borderColor),
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Notes',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: txtPrimary,
+            Builder(
+              builder: (context) {
+                final clean = WorkoutSessionHelper.cleanNotes(_session.notes);
+                if (_exerciseGroups.isEmpty || clean.isEmpty) return const SizedBox.shrink();
+                return Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Notes',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: txtPrimary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _session.notes ?? '',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: txtSecondary,
+                      const SizedBox(height: 4),
+                      Text(
+                        clean,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: txtSecondary,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                    ],
+                  ),
+                );
+              },
+            ),
 
             const SizedBox(height: 16),
             Row(

@@ -7,7 +7,10 @@ import 'package:aegymer/core/services/food/nutrition_service.dart';
 import 'package:drift/drift.dart' as drift;
 
 class WelcomePage extends StatefulWidget {
-  const WelcomePage({super.key});
+  /// Optional database override (used by tests); defaults to the app singleton.
+  final AppDatabase? db;
+
+  const WelcomePage({super.key, this.db});
 
   @override
   State<WelcomePage> createState() => _WelcomePageState();
@@ -23,7 +26,7 @@ class _WelcomePageState extends State<WelcomePage> {
   String _selectedTarget = 'Gain Muscle';
   final _preferencesController = TextEditingController();
 
-  final _db = AppDatabase();
+  late final AppDatabase _db = widget.db ?? AppDatabase();
   bool _isSaving = false;
 
   Future<void> _saveProfile() async {
@@ -95,7 +98,7 @@ class _WelcomePageState extends State<WelcomePage> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const MainPage()),
+        MaterialPageRoute(builder: (_) => MainPage(db: widget.db)),
       );
     } catch (e) {
       if (!mounted) return;

@@ -3,11 +3,14 @@ import 'package:drift/drift.dart' as drift;
 import 'package:aegymer/core/databases/app_database.dart';
 import 'package:aegymer/core/services/streak_service.dart';
 import 'package:aegymer/core/utils/workout_cal.dart';
+import 'package:aegymer/core/utils/workout_session_helper.dart';
 import 'package:aegymer/presentation/recent_session_popup.dart';
 import 'package:aegymer/presentation/screen/edit_workout_session_screen.dart';
+import 'package:aegymer/core/utils/set_metrics.dart';
 
 class _SessionSummaryItem {
   final WorkoutSession session;
+  final String workoutName;
   final List<String> exerciseNames;
   final int totalSets;
   final double totalVolume;
@@ -15,6 +18,7 @@ class _SessionSummaryItem {
 
   _SessionSummaryItem({
     required this.session,
+    required this.workoutName,
     required this.exerciseNames,
     required this.totalSets,
     required this.totalVolume,
@@ -71,20 +75,43 @@ class _WorkoutHistoryScreenState extends State<WorkoutHistoryScreen> {
       ]))
       .get();
 
+    if (sessions.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _allSessions = [];
+        _loading = false;
+      });
+      return;
+    }
+
+    final cachedRoutines = await widget.db.getRoutinesWithExercises();
+    final sessionIds = sessions.map((s) => s.id).toList();
+
+    // 1 single batch query for all sets and exercises across all sessions
+    final allRows = await (widget.db.select(widget.db.workoutSets).join([
+      drift.innerJoin(
+        widget.db.exercises,
+        widget.db.exercises.id.equalsExp(widget.db.workoutSets.exerciseId),
+      ),
+    ])
+      ..where(widget.db.workoutSets.sessionId.isIn(sessionIds))
+      ..orderBy([drift.OrderingTerm.asc(widget.db.workoutSets.setNumber)]))
+      .get();
+
+    final Map<String, List<drift.TypedResult>> rowsBySession = {};
+    for (final row in allRows) {
+      final s = row.readTable(widget.db.workoutSets);
+      rowsBySession.putIfAbsent(s.sessionId, () => []).add(row);
+    }
+
     final List<_SessionSummaryItem> items = [];
 
-    for (final session in sessions) {
-      final rows = await (widget.db.select(widget.db.workoutSets).join([
-        drift.innerJoin(
-          widget.db.exercises,
-          widget.db.exercises.id.equalsExp(widget.db.workoutSets.exerciseId),
-        ),
-      ])
-        ..where(widget.db.workoutSets.sessionId.equals(session.id))
-        ..orderBy([drift.OrderingTerm.asc(widget.db.workoutSets.setNumber)]))
-        .get();
+    for (int i = 0; i < sessions.length; i++) {
+      final session = sessions[i];
+      final rows = rowsBySession[session.id] ?? const [];
 
       final exNames = <String>[];
+      final exIds = <String>[];
       int setsCount = 0;
       double volume = 0.0;
       double calories = 0.0;
@@ -95,9 +122,10 @@ class _WorkoutHistoryScreenState extends State<WorkoutHistoryScreen> {
 
         if (!exNames.contains(ex.name)) {
           exNames.add(ex.name);
+          exIds.add(ex.id);
         }
         setsCount++;
-        volume += (s.weight * s.reps);
+        volume += (s.loadKg * s.reps);
 
         final trackingType = WorkoutCalculator.normalizeTrackingType(
           s.weightType,
@@ -106,7 +134,7 @@ class _WorkoutHistoryScreenState extends State<WorkoutHistoryScreen> {
           equipment: ex.equipment,
         );
 
-        calories += WorkoutCalculator.calculateSetCalories(
+        calories += s.calories ?? WorkoutCalculator.calculateSetCalories(
           exerciseName: ex.name,
           targetMuscle: ex.targetMuscle,
           equipment: ex.equipment,
@@ -119,9 +147,18 @@ class _WorkoutHistoryScreenState extends State<WorkoutHistoryScreen> {
         );
       }
 
+      final workoutName = await WorkoutSessionHelper.resolveSessionName(
+        session: session,
+        db: widget.db,
+        index: i,
+        cachedRoutines: cachedRoutines,
+        sessionExerciseIds: exIds,
+      );
+
       items.add(
         _SessionSummaryItem(
           session: session,
+          workoutName: workoutName,
           exerciseNames: exNames,
           totalSets: setsCount,
           totalVolume: volume,
@@ -225,9 +262,10 @@ class _WorkoutHistoryScreenState extends State<WorkoutHistoryScreen> {
     final filtered = _allSessions.where((item) {
       if (_searchQuery.isEmpty) return true;
       final q = _searchQuery.toLowerCase();
+      final hasName = item.workoutName.toLowerCase().contains(q);
       final hasEx = item.exerciseNames.any((name) => name.toLowerCase().contains(q));
       final hasNotes = item.session.notes?.toLowerCase().contains(q) ?? false;
-      return hasEx || hasNotes;
+      return hasName || hasEx || hasNotes;
     }).toList();
 
     return Scaffold(
@@ -396,21 +434,29 @@ class _WorkoutHistoryScreenState extends State<WorkoutHistoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _formatDate(item.session.date),
+                          item.workoutName,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: txtPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
+                          _formatDate(item.session.date),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: txtSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
                           item.exerciseNames.isNotEmpty
                               ? item.exerciseNames.join(', ')
                               : 'No exercises recorded',
                           style: TextStyle(
                             fontSize: 12,
-                            color: txtSecondary,
+                            color: txtSecondary.withValues(alpha: 0.85),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -496,27 +542,33 @@ class _WorkoutHistoryScreenState extends State<WorkoutHistoryScreen> {
                 ],
               ),
 
-              if (item.session.notes != null && item.session.notes!.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    item.session.notes!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                      color: txtSecondary,
+              Builder(
+                builder: (context) {
+                  final cleanNotes = WorkoutSessionHelper.cleanNotes(item.session.notes);
+                  if (cleanNotes.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 10.0),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        cleanNotes,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: txtSecondary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+                  );
+                },
+              ),
             ],
           ),
         ),

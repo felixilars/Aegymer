@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aegymer/core/databases/app_database.dart';
 import 'package:aegymer/core/utils/workout_cal.dart';
+import 'package:aegymer/core/utils/set_metrics.dart';
 
 /// Data class holding summary of all streak metrics
 class StreakSummary {
@@ -98,14 +99,14 @@ class StreakService {
     final weekActivityDays = List<bool>.filled(7, false);
     final thisWeekSessions = <WorkoutSession>[];
 
+    final endOfWeek = startOfWeek.add(const Duration(days: 7));
     final sessionDaysSet = <DateTime>{};
     for (final s in sessions) {
       final sessionDay = DateTime(s.date.year, s.date.month, s.date.day);
       sessionDaysSet.add(sessionDay);
 
-      if (sessionDay.isAfter(
-        startOfWeek.subtract(const Duration(seconds: 1)),
-      )) {
+      if (sessionDay.isAfter(startOfWeek.subtract(const Duration(seconds: 1))) &&
+          sessionDay.isBefore(endOfWeek)) {
         thisWeekSessions.add(s);
         final dayIndex = sessionDay.weekday - 1; // 0 = Mon, 6 = Sun
         if (dayIndex >= 0 && dayIndex < 7) {
@@ -306,7 +307,7 @@ class StreakService {
       final setsBySession = <String, List<WorkoutSet>>{};
       for (var set in sets) {
         setsBySession.putIfAbsent(set.sessionId, () => []).add(set);
-        totalVolume += (set.weight * set.reps);
+        totalVolume += (set.loadKg * set.reps);
         if (set.distance != null && set.distance! > 0) {
           totalDistanceKm += set.distance!;
         }
@@ -322,7 +323,7 @@ class StreakService {
           equipment: equip,
         );
 
-        final setCalories = WorkoutCalculator.calculateSetCalories(
+        final setCalories = set.calories ?? WorkoutCalculator.calculateSetCalories(
           exerciseName: exName,
           targetMuscle: targetMuscle,
           equipment: equip,

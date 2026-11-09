@@ -1,15 +1,14 @@
 import 'package:drift/drift.dart';
-import 'package:aegymer/core/databases/user_meals.dart';
-import 'package:aegymer/core/databases/food.dart';
 
 class MealItems extends Table {
   TextColumn get id => text()();
 
+  // Raw-SQL foreign keys; see the note in workout_sets.dart.
   TextColumn get mealId =>
-      text().references(UserMeals, #id)();
+      text().customConstraint('NOT NULL REFERENCES user_meals(id)')();
 
   TextColumn get foodId =>
-      text().references(Foods, #id)();
+      text().customConstraint('NOT NULL REFERENCES foods(id)')();
 
   RealColumn get amount => real()(); // grams
 

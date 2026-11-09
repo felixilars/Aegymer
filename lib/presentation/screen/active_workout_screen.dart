@@ -9,6 +9,10 @@ import 'package:aegymer/core/services/sync_service.dart';
 import 'package:aegymer/core/services/streak_service.dart';
 import 'package:aegymer/core/utils/url_launcher_helper.dart';
 import 'package:aegymer/core/services/workout_draft_service.dart';
+import 'package:aegymer/core/services/settings_service.dart';
+import 'package:aegymer/core/services/weight_suggestion_service.dart';
+import 'package:aegymer/core/utils/workout_session_helper.dart';
+import 'package:aegymer/presentation/screen/exercise_formula_screen.dart';
 
 class LocalWorkoutSet {
   final TextEditingController weightController;
@@ -18,31 +22,53 @@ class LocalWorkoutSet {
 
   String weightType; // 'standard', 'added', 'assisted', 'bodyweight'
 
+  // Values from last time (or defaults), shown as greyed-out hint text.
+  // They are never saved: only what the user actually types counts, so
+  // skipped sets and untouched cardio defaults don't end up in history.
+  String weightHint;
+  String repsHint;
+  String distanceHint;
+  String durationHint;
+
+  /// A new, empty set whose fields show [weight], [reps], [distance] and
+  /// [duration] as hints.
   LocalWorkoutSet({
     required double weight,
     required int reps,
     this.weightType = 'standard',
     double distance = 0.0,
     int duration = 0,
-  }) : weightController = TextEditingController(text: formatWeight(weight)),
-       repsController = TextEditingController(text: reps.toString()),
-       distanceController = TextEditingController(
-         text: distance > 0 ? distance.toStringAsFixed(2) : '',
-       ),
-       durationController = TextEditingController(
-         text: duration > 0 ? _formatDurationString(duration) : '',
-       );
+  }) : weightHint = weight > 0 ? formatWeight(weight) : '',
+       repsHint = reps > 0 ? reps.toString() : '',
+       distanceHint = distance > 0 ? distance.toStringAsFixed(2) : '',
+       durationHint = duration > 0 ? _formatDurationString(duration) : '',
+       weightController = TextEditingController(),
+       repsController = TextEditingController(),
+       distanceController = TextEditingController(),
+       durationController = TextEditingController();
 
+  /// A set restored from a draft: entered text plus its hints.
   LocalWorkoutSet.fromRawText({
     String weight = '',
     String reps = '',
     String distance = '',
     String duration = '',
     this.weightType = 'standard',
+    this.weightHint = '',
+    this.repsHint = '',
+    this.distanceHint = '',
+    this.durationHint = '',
   }) : weightController = TextEditingController(text: weight),
        repsController = TextEditingController(text: reps),
        distanceController = TextEditingController(text: distance),
        durationController = TextEditingController(text: duration);
+
+  /// What the field shows: the typed value, or the hint when it's empty.
+  String get shownWeight => weightController.text.trim().isNotEmpty ? weightController.text : weightHint;
+  String get shownReps => repsController.text.trim().isNotEmpty ? repsController.text : repsHint;
+  String get shownDistance => distanceController.text.trim().isNotEmpty ? distanceController.text : distanceHint;
+  int get shownDurationSeconds =>
+      durationController.text.trim().isNotEmpty ? durationInSeconds : parseDuration(durationHint);
 
   static String formatWeight(double weight) {
     if (weight % 1 == 0) {
@@ -60,8 +86,11 @@ class LocalWorkoutSet {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  int get durationInSeconds {
-    final text = durationController.text.trim();
+  int get durationInSeconds => parseDuration(durationController.text);
+
+  /// Parses 'SS', 'MM:SS' or 'HH:MM:SS' into seconds (0 when empty/invalid).
+  static int parseDuration(String raw) {
+    final text = raw.trim();
     if (text.isEmpty) return 0;
     if (text.contains(':')) {
       final parts = text.split(':');
@@ -115,9 +144,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
   DateTime? _sessionStartTime;
   bool _isLoading = true;
   bool _isWorkoutFinished = false;
+  bool _canPop = false;
   SharedPreferences? _prefs;
 
-  Future<({String? mode, int? setCount, String? weightType})> _getSavedOrHistoricalOptions(
+  Future<({String? mode, int? setCount, String? weightType, List<WorkoutSet>? historicalSets})> _getSavedOrHistoricalOptions(
     String exerciseId,
   ) async {
     _prefs ??= await SharedPreferences.getInstance();
@@ -126,9 +156,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
     final prefSets = _prefs?.getInt('pref_ex_sets_$exerciseId');
     final prefWType = _prefs?.getString('pref_ex_wtype_$exerciseId');
 
-    if (prefMode != null && prefSets != null) {
-      return (mode: prefMode, setCount: prefSets, weightType: prefWType);
-    }
+    List<WorkoutSet>? historicalSets;
 
     try {
       final query = widget.db.select(widget.db.workoutSets).join([
@@ -149,6 +177,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
             .toList();
 
         if (latestSets.isNotEmpty) {
+          historicalSets = latestSets;
           final count = latestSets.length;
           final first = latestSets.first;
           final wType = first.weightType;
@@ -167,6 +196,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
               first.weight == 0 &&
               first.reps == (first.durationSeconds ?? 0)) {
             inferredMode = 'time_only';
+          } else if (first.weight == 0 &&
+              first.reps == 1 &&
+              (first.durationSeconds ?? 0) > 0) {
+            // Cardio logged with duration only (cardio sets are stored with reps = 1).
+            inferredMode = 'cardio_time';
           }
 
           final finalMode = prefMode ?? inferredMode;
@@ -183,6 +217,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
             mode: finalMode,
             setCount: finalCount,
             weightType: finalWType,
+            historicalSets: historicalSets,
           );
         }
       }
@@ -190,7 +225,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       debugPrint('Error retrieving historical exercise options: $e');
     }
 
-    return (mode: prefMode, setCount: prefSets, weightType: prefWType);
+    return (
+      mode: prefMode,
+      setCount: prefSets,
+      weightType: prefWType,
+      historicalSets: historicalSets,
+    );
   }
 
   Future<void> _saveExerciseOptions({
@@ -211,6 +251,23 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
     }
   }
   late DateTime _workoutDate = widget.initialDate ?? DateTime.now();
+
+  // Next-weight suggestions (APRE / KNN), computed once per exercise and
+  // invalidated when the workout date changes.
+  late final WeightSuggestionService _suggestionService = WeightSuggestionService(widget.db);
+  final Map<String, Future<WeightSuggestion?>> _suggestions = {};
+
+  Future<WeightSuggestion?> _suggestionFor(String exerciseId) {
+    return _suggestions.putIfAbsent(
+      exerciseId,
+      () => _suggestionService
+          .suggestFor(exerciseId, sessionDate: _workoutDate)
+          .catchError((Object e) {
+        debugPrint('Weight suggestion failed for $exerciseId: $e');
+        return null;
+      }),
+    );
+  }
 
   bool get _isPastDate {
     final now = DateTime.now();
@@ -244,6 +301,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
     );
     if (picked != null) {
       setState(() {
+        _suggestions.clear();
         _workoutDate = DateTime(
           picked.year,
           picked.month,
@@ -262,10 +320,47 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
   // Active tracking type per exercise
   final Map<String, String> _activeTrackingTypes = {};
 
-  // Barbell state maps per exercise
+  // Barbell & Dumbbell weight entry state maps per exercise: 'total', 'barbell', 'dumbbell'
+  final Map<String, String> _weightEntryMode = {};
   final Map<String, bool> _useBarbell = {};
   final Map<String, double> _barbellWeight = {};
   final Map<String, TextEditingController> _barbellWeightControllers = {};
+
+  String _getWeightMode(String exerciseId, {Exercise? exercise}) {
+    if (_weightEntryMode.containsKey(exerciseId)) {
+      return _weightEntryMode[exerciseId]!;
+    }
+    final saved = _prefs?.getString('pref_weight_mode_$exerciseId');
+    if (saved != null) {
+      _weightEntryMode[exerciseId] = saved;
+      _useBarbell[exerciseId] = saved == 'barbell';
+      return saved;
+    }
+    if (_useBarbell[exerciseId] == true) {
+      _weightEntryMode[exerciseId] = 'barbell';
+      return 'barbell';
+    }
+
+    Exercise? ex = exercise;
+    if (ex == null) {
+      for (final e in _sessionExercises) {
+        if (e.id == exerciseId) {
+          ex = e;
+          break;
+        }
+      }
+    }
+    if (ex != null) {
+      final eq = ex.equipment.trim().toLowerCase();
+      if (eq == 'dumbbell') {
+        _weightEntryMode[exerciseId] = 'dumbbell';
+        return 'dumbbell';
+      }
+    }
+
+    _weightEntryMode[exerciseId] = 'total';
+    return 'total';
+  }
 
   // Bodyweight state maps per exercise
   final Map<String, double> _exerciseBodyweight = {};
@@ -321,7 +416,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
   }
 
   Future<void> _saveCurrentDraft() async {
-    if (_isWorkoutFinished || !mounted || _isLoading) return;
+    if (_isWorkoutFinished || _canPop || !mounted || _isLoading) return;
     if (_sessionExercises.isEmpty) return;
 
     final setsData = <String, List<Map<String, dynamic>>>{};
@@ -333,6 +428,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
         'distance': s.distanceController.text,
         'duration': s.durationController.text,
         'weightType': s.weightType,
+        'weightHint': s.weightHint,
+        'repsHint': s.repsHint,
+        'distanceHint': s.distanceHint,
+        'durationHint': s.durationHint,
       }).toList();
     }
 
@@ -346,6 +445,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       exercises: _sessionExercises,
       trackingTypes: _activeTrackingTypes,
       setsData: setsData,
+      weightEntryModes: _weightEntryMode,
+      barbellWeights: _barbellWeight,
     );
   }
 
@@ -416,6 +517,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       final rawExs = draft['exercises'] as List<dynamic>? ?? [];
       final draftSetsData = draft['setsData'] as Map<String, dynamic>? ?? {};
       final draftTrackingTypes = draft['trackingTypes'] as Map<String, dynamic>? ?? {};
+      final draftWeightModes = draft['weightEntryModes'] as Map<String, dynamic>? ?? {};
+      final draftBarbellWeights = draft['barbellWeights'] as Map<String, dynamic>? ?? {};
 
       final availableMap = {for (final e in _allAvailableExercises) e.id: e};
 
@@ -436,6 +539,16 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
         final tType = draftTrackingTypes[exId]?.toString() ?? exMap['trackingType']?.toString() ?? 'weight_reps';
         _activeTrackingTypes[exId] = tType;
 
+        final wMode = draftWeightModes[exId]?.toString();
+        if (wMode != null) {
+          _weightEntryMode[exId] = wMode;
+          _useBarbell[exId] = wMode == 'barbell';
+        }
+        final bWeight = (draftBarbellWeights[exId] as num?)?.toDouble();
+        if (bWeight != null) {
+          _barbellWeight[exId] = bWeight;
+        }
+
         final rawSets = draftSetsData[exId] as List<dynamic>? ?? [];
         final localSets = <LocalWorkoutSet>[];
         for (final rawSet in rawSets) {
@@ -453,6 +566,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
               distance: distStr,
               duration: durStr,
               weightType: wType,
+              weightHint: sMap['weightHint']?.toString() ?? '',
+              repsHint: sMap['repsHint']?.toString() ?? '',
+              distanceHint: sMap['distanceHint']?.toString() ?? '',
+              durationHint: sMap['durationHint']?.toString() ?? '',
             ),
           );
         }
@@ -486,6 +603,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
           ex,
           explicitSetCount: opts.setCount,
           explicitWeightType: opts.weightType,
+          historicalSets: opts.historicalSets,
         );
       }
     }
@@ -499,9 +617,19 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
     Exercise ex, {
     int? explicitSetCount,
     String? explicitWeightType,
+    List<WorkoutSet>? historicalSets,
   }) {
     final String trackingType = _activeTrackingTypes[ex.id] ?? 'weight_reps';
-    final double initW = WorkoutCalculator.getDefaultInputWeight(trackingType);
+    double initW = WorkoutCalculator.getDefaultInputWeight(trackingType);
+    final String mode = _getWeightMode(ex.id, exercise: ex);
+    final double barW = _barbellWeight[ex.id] ?? 20.0;
+    if (trackingType == 'weight_reps') {
+      if (mode == 'barbell') {
+        initW = max(0.0, (initW - barW) / 2.0);
+      } else if (mode == 'dumbbell') {
+        initW = max(0.0, initW / 2.0);
+      }
+    }
 
     int setsCount;
     if (explicitSetCount != null && explicitSetCount > 0) {
@@ -538,7 +666,43 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       }
     }
 
+    final bool useHistorical = SettingsService.weightAutofillMode == 'historical' &&
+        historicalSets != null &&
+        historicalSets.isNotEmpty;
+
     _exerciseSets[ex.id] = List.generate(setsCount, (index) {
+      if (useHistorical) {
+        final hist = index < historicalSets.length
+            ? historicalSets[index]
+            : historicalSets.last;
+
+        double setW = initW;
+        if (trackingType == 'weight_reps') {
+          if (mode == 'barbell') {
+            setW = max(0.0, (hist.weight - barW) / 2.0);
+          } else if (mode == 'dumbbell') {
+            setW = max(0.0, hist.weight / 2.0);
+          } else {
+            setW = hist.weight;
+          }
+        } else {
+          setW = hist.weight;
+        }
+
+        final setR = hist.reps > 0 ? hist.reps : 10;
+        final setDist = hist.distance ?? 0.0;
+        final setDur = hist.durationSeconds ?? 0;
+        final setWType = hist.weightType ?? wType;
+
+        return LocalWorkoutSet(
+          weight: setW,
+          reps: setR,
+          weightType: setWType,
+          distance: setDist,
+          duration: setDur,
+        );
+      }
+
       int baseR = 10;
       int baseDuration = 0;
       double baseDistance = 0.0;
@@ -568,10 +732,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
     final sets = _exerciseSets[exerciseId] ?? [];
 
     double lastW = WorkoutCalculator.getDefaultInputWeight(trackingType);
-    final bool useBar = _useBarbell[exerciseId] ?? false;
+    final String mode = _getWeightMode(exerciseId);
     final double barW = _barbellWeight[exerciseId] ?? 20.0;
-    if (useBar && trackingType == 'weight_reps') {
-      lastW = max(0.0, (lastW - barW) / 2.0);
+    if (trackingType == 'weight_reps') {
+      if (mode == 'barbell') {
+        lastW = max(0.0, (lastW - barW) / 2.0);
+      } else if (mode == 'dumbbell') {
+        lastW = max(0.0, lastW / 2.0);
+      }
     }
     int lastR = 10;
     double lastDist = 0.0;
@@ -588,10 +756,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
 
     if (sets.isNotEmpty) {
       final lastSet = sets.last;
-      lastW = double.tryParse(lastSet.weightController.text) ?? lastW;
-      lastR = int.tryParse(lastSet.repsController.text) ?? lastR;
-      lastDist = double.tryParse(lastSet.distanceController.text) ?? lastDist;
-      lastDur = lastSet.durationInSeconds;
+      // The new set's hints follow what the previous set shows.
+      lastW = double.tryParse(lastSet.shownWeight) ?? lastW;
+      lastR = int.tryParse(lastSet.shownReps) ?? lastR;
+      lastDist = double.tryParse(lastSet.shownDistance) ?? lastDist;
+      lastDur = lastSet.shownDurationSeconds;
       lastWType = lastSet.weightType;
     }
 
@@ -611,6 +780,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       exerciseId: exerciseId,
       setCount: _exerciseSets[exerciseId]?.length,
     );
+    _saveCurrentDraft();
   }
 
   void _removeLastSet(String exerciseId) {
@@ -626,6 +796,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       exerciseId: exerciseId,
       setCount: _exerciseSets[exerciseId]?.length,
     );
+    _saveCurrentDraft();
   }
 
   void _removeExerciseFromSession(Exercise ex) {
@@ -677,6 +848,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       }
       _barbellWeightControllers.remove(ex.id)?.dispose();
       _bodyweightControllers.remove(ex.id)?.dispose();
+      _weightEntryMode.remove(ex.id);
       _useBarbell.remove(ex.id);
       _barbellWeight.remove(ex.id);
       _exerciseBodyweight.remove(ex.id);
@@ -754,6 +926,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       }
       _barbellWeightControllers.remove(oldEx.id)?.dispose();
       _bodyweightControllers.remove(oldEx.id)?.dispose();
+      _weightEntryMode.remove(oldEx.id);
       _useBarbell.remove(oldEx.id);
       _barbellWeight.remove(oldEx.id);
       _exerciseBodyweight.remove(oldEx.id);
@@ -774,6 +947,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
         newEx,
         explicitSetCount: opts.setCount,
         explicitWeightType: opts.weightType,
+        historicalSets: opts.historicalSets,
       );
       _currentPageIndex = index;
     });
@@ -809,9 +983,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       final double userBodyweight =
           _exerciseBodyweight[ex.id] ?? (_userProfile?.weight ?? 70.0);
 
-      final bool useBar = _useBarbell[ex.id] ?? false;
+      final String mode = _getWeightMode(ex.id);
       final double barW = _barbellWeight[ex.id] ?? 20.0;
 
+      int exerciseSetCounter = 0;
       for (int i = 0; i < sets.length; i++) {
         final localSet = sets[i];
         final weight = double.tryParse(localSet.weightController.text) ?? 0.0;
@@ -820,7 +995,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
             double.tryParse(localSet.distanceController.text) ?? 0.0;
         int durationVal = localSet.durationInSeconds;
 
-        final double actualWeight = useBar ? (2.0 * weight + barW) : weight;
+        final double actualWeight = mode == 'barbell'
+            ? (2.0 * weight + barW)
+            : (mode == 'dumbbell' ? (2.0 * weight) : weight);
 
         final String wType =
             (trackingType == 'bodyweight' ||
@@ -829,38 +1006,20 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
             ? localSet.weightType
             : 'standard';
 
-        bool isCompleted = false;
-        if (trackingType == 'cardio_time') {
-          isCompleted = durationVal > 0 || distanceVal > 0;
-          if (isCompleted) {
-            // If duration was omitted by user, infer from session elapsed time or distance
-            if (durationVal <= 0) {
-              if (_secondsElapsed > 0) {
-                durationVal = _secondsElapsed;
-              } else if (distanceVal > 0) {
-                durationVal = ((distanceVal / 8.5) * 3600).round();
-              }
-            } else if (distanceVal <= 0) {
-              final nameLower = ex.name.toLowerCase();
-              if (nameLower.contains('cycl') || nameLower.contains('bike')) {
-                distanceVal = (durationVal / 3600.0) * 20.0;
-              } else if (nameLower.contains('walk')) {
-                distanceVal = (durationVal / 3600.0) * 5.0;
-              } else {
-                distanceVal = (durationVal / 3600.0) * 8.5;
-              }
-            }
-          }
-        } else if (trackingType == 'time_only') {
-          isCompleted = durationVal > 0;
-        } else if (trackingType == 'bodyweight') {
-          isCompleted = reps > 0;
-        } else {
-          isCompleted = actualWeight > 0 && reps > 0;
-        }
+        // Cardio stores only what the user actually entered: a missing
+        // distance or duration stays null rather than being guessed.
+        final bool isCompleted = WorkoutCalculator.isSetCompleted(
+          trackingType: trackingType,
+          totalWeight: actualWeight,
+          reps: reps,
+          distance: distanceVal,
+          durationSeconds: durationVal,
+          weightType: wType,
+        );
 
         if (isCompleted) {
           hasCompletedSet = true;
+          exerciseSetCounter++;
           final sessionId = 'temp_id'; // will be replaced in save transaction
 
           final double effWeight = WorkoutCalculator.getEffectiveWeight(
@@ -872,17 +1031,16 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
             userBodyweight: userBodyweight,
             exerciseName: ex.name,
           );
-          final double e1rm = WorkoutCalculator.calculateE1RM(
-            effWeight,
-            trackingType == 'time_only' ? durationVal : reps,
-          );
+          final double e1rm = (trackingType == 'cardio_time' || trackingType == 'time_only')
+              ? 0.0
+              : WorkoutCalculator.calculateE1RM(effWeight, reps);
 
           setsCompanions.add(
             WorkoutSetsCompanion.insert(
               id: 'set-${DateTime.now().microsecondsSinceEpoch}-$i-${Random().nextInt(1000)}',
               sessionId: sessionId,
               exerciseId: ex.id,
-              setNumber: i + 1,
+              setNumber: exerciseSetCounter,
               weight:
                   trackingType == 'cardio_time' || trackingType == 'time_only'
                   ? 0.0
@@ -895,8 +1053,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
               rpe: const Value.absent(),
               calculated1rm: Value(e1rm),
               weightType: Value(wType),
+              // Cardio sets always carry a (possibly null) distance value;
+              // this is also how cardio sets are told apart below.
               distance: trackingType == 'cardio_time'
-                  ? Value(distanceVal)
+                  ? Value(distanceVal > 0 ? distanceVal : null)
                   : const Value.absent(),
               durationSeconds:
                   (trackingType == 'cardio_time' || trackingType == 'time_only')
@@ -956,9 +1116,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
     try {
       final sessionId = 'session-${DateTime.now().millisecondsSinceEpoch}';
 
-      final setsNeedingDuration = setsCompanions
-          .where((s) => !s.durationSeconds.present || s.durationSeconds.value == null || s.durationSeconds.value == 0)
-          .length;
+      // Strength sets get an estimated duration (used only for calorie estimates).
+      // Cardio sets are excluded: their duration is whatever the user entered, or null.
+      bool needsEstimatedDuration(WorkoutSetsCompanion s) =>
+          !s.distance.present &&
+          (!s.durationSeconds.present || s.durationSeconds.value == null || s.durationSeconds.value == 0);
+
+      final setsNeedingDuration = setsCompanions.where(needsEstimatedDuration).length;
 
       // In real-world strength training, each set (work + recovery rest) averages 90-120 seconds.
       // If elapsed time is very small (e.g. quick entry or past date log), estimate 90s per set minimum
@@ -973,7 +1137,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
           : 90;
 
       final finalCompanions = setsCompanions.map((set) {
-        if (!set.durationSeconds.present || set.durationSeconds.value == null || set.durationSeconds.value == 0) {
+        if (needsEstimatedDuration(set)) {
           return set.copyWith(
             sessionId: Value(sessionId),
             durationSeconds: Value(avgDuration > 0 ? avgDuration : 90),
@@ -982,10 +1146,16 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
         return set.copyWith(sessionId: Value(sessionId));
       }).toList();
 
-      await widget.db.saveWorkoutSession(
+      final finalNotes = WorkoutSessionHelper.formatNotesWithRoutine(
+        userNotes: _notesController.text.trim(),
+        routineName: widget.routine?.routine.name,
+      );
+
+      // Returned sets include custom-formula load and calories.
+      final savedSets = await widget.db.saveWorkoutSession(
         sessionId: sessionId,
         date: _workoutDate,
-        notes: _notesController.text.trim(),
+        notes: finalNotes,
         setsCompanions: finalCompanions,
       );
 
@@ -1017,10 +1187,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       double totalBurnedCalories = 0.0;
       final exMap = {for (var e in _sessionExercises) e.id: e};
 
-      for (final companion in finalCompanions) {
+      for (final companion in savedSets) {
         final w = companion.weight.value;
         final r = companion.reps.value;
-        totalVolume += (w * r);
+        totalVolume += (companion.effectiveLoad.value ?? w) * r;
 
         final dist = companion.distance.present ? (companion.distance.value ?? 0.0) : 0.0;
         totalDistance += dist;
@@ -1038,7 +1208,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
         final dur = companion.durationSeconds.present
             ? (companion.durationSeconds.value ?? avgDuration)
             : avgDuration;
-        final cal = WorkoutCalculator.calculateSetCalories(
+        final cal = companion.calories.value ?? WorkoutCalculator.calculateSetCalories(
           exerciseName: exName,
           targetMuscle: ex?.targetMuscle ?? '',
           equipment: ex?.equipment ?? '',
@@ -1062,6 +1232,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
         );
         await WorkoutDraftService.clearDraft();
         StreakService.notifyWorkoutUpdated();
+        setState(() {
+          _canPop = true;
+          _isWorkoutFinished = true;
+        });
         Navigator.of(context).pop(true);
       }
     } catch (e) {
@@ -1278,21 +1452,31 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
     }
 
     return PopScope(
-      canPop: false,
+      canPop: _canPop || _isWorkoutFinished,
       onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
+        if (didPop || _isWorkoutFinished || _canPop) return;
         final action = await _showExitConfirmationDialog();
         if (action == 'finish') {
           await _finishWorkout();
         } else if (action == 'leave') {
           await _saveCurrentDraft();
-          if (mounted) Navigator.of(context).pop();
+          if (mounted) {
+            setState(() {
+              _canPop = true;
+            });
+            Navigator.of(context).pop();
+          }
         } else if (action == 'discard') {
           _timer?.cancel();
           _isWorkoutFinished = true;
           await WorkoutDraftService.clearDraft();
           StreakService.notifyWorkoutUpdated();
-          if (mounted) Navigator.of(context).pop(true);
+          if (mounted) {
+            setState(() {
+              _canPop = true;
+            });
+            Navigator.of(context).pop(true);
+          }
         }
       },
       child: Scaffold(
@@ -1300,18 +1484,32 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () async {
+              if (_isWorkoutFinished || _canPop) {
+                Navigator.of(context).pop(true);
+                return;
+              }
               final action = await _showExitConfirmationDialog();
               if (action == 'finish') {
                 await _finishWorkout();
               } else if (action == 'leave') {
                 await _saveCurrentDraft();
-                if (mounted) Navigator.of(context).pop();
+                if (mounted) {
+                  setState(() {
+                    _canPop = true;
+                  });
+                  Navigator.of(context).pop();
+                }
               } else if (action == 'discard') {
                 _timer?.cancel();
                 _isWorkoutFinished = true;
                 await WorkoutDraftService.clearDraft();
                 StreakService.notifyWorkoutUpdated();
-                if (mounted) Navigator.of(context).pop(true);
+                if (mounted) {
+                  setState(() {
+                    _canPop = true;
+                  });
+                  Navigator.of(context).pop(true);
+                }
               }
             },
           ),
@@ -1686,6 +1884,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
           if (activeType == 'weight_reps') ...[
             _buildBarbellOptions(ex.id),
             const SizedBox(height: 16.0),
+            _buildWeightSuggestion(ex.id),
           ],
 
           if (activeType == 'bodyweight' ||
@@ -1839,34 +2038,126 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
     );
   }
 
-  void _onToggleBarbell(String exerciseId, bool val) {
+  /// Card showing the suggested working weight from past sessions, with an
+  /// action that fills it into every set of this exercise.
+  Widget _buildWeightSuggestion(String exerciseId) {
+    return FutureBuilder<WeightSuggestion?>(
+      future: _suggestionFor(exerciseId),
+      builder: (context, snapshot) {
+        final suggestion = snapshot.data;
+        if (suggestion == null) return const SizedBox.shrink();
+
+        final primary = Theme.of(context).colorScheme.primary;
+        final change = suggestion.change;
+        final changeText = change.abs() < 0.01
+            ? 'same as last time'
+            : '${change > 0 ? '+' : '-'}${LocalWorkoutSet.formatWeight(change.abs())} kg vs last';
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+            decoration: BoxDecoration(
+              color: primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: primary.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.auto_graph_rounded, color: primary, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Suggested: ${LocalWorkoutSet.formatWeight(suggestion.weight)} kg',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$changeText · last ${LocalWorkoutSet.formatWeight(suggestion.lastWeight)} kg'
+                        ' × ${suggestion.lastReps} · ${suggestion.method}',
+                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => _applyWeightSuggestion(exerciseId, suggestion.weight),
+                  child: const Text('Apply'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Fills [totalKg] into all sets, converted to the exercise's entry mode
+  /// (per side of the bar for barbell, per dumbbell for dumbbell).
+  void _applyWeightSuggestion(String exerciseId, double totalKg) {
+    final mode = _getWeightMode(exerciseId);
+    final barW = _barbellWeight[exerciseId] ?? 20.0;
+    final double inputKg = mode == 'barbell'
+        ? max(0.0, (totalKg - barW) / 2.0)
+        : (mode == 'dumbbell' ? totalKg / 2.0 : totalKg);
+    final text = LocalWorkoutSet.formatWeight(inputKg);
+
     setState(() {
-      _useBarbell[exerciseId] = val;
-      final double barW = _barbellWeight[exerciseId] ?? 20.0;
-      final sets = _exerciseSets[exerciseId] ?? [];
-      for (final set in sets) {
-        final currentVal =
-            double.tryParse(set.weightController.text) ?? 0.0;
-        if (val) {
-          // Convert from total barbell weight to weight per side: (Total - Barbell) / 2
-          final oneSide = max(0.0, (currentVal - barW) / 2.0);
-          set.weightController.text = LocalWorkoutSet.formatWeight(
-            oneSide,
-          );
-        } else {
-          // Convert from weight per side to total barbell weight: 2 * (Per Side) + Barbell
-          final total = 2.0 * currentVal + barW;
-          set.weightController.text = LocalWorkoutSet.formatWeight(
-            total,
-          );
-        }
+      for (final set in _exerciseSets[exerciseId] ?? const <LocalWorkoutSet>[]) {
+        set.weightController.text = text;
       }
     });
+    _saveCurrentDraft();
+
+    final unit = mode == 'barbell'
+        ? ' per side'
+        : (mode == 'dumbbell' ? ' per dumbbell' : '');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Set all sets to $text kg$unit')),
+    );
+  }
+
+  void _onChangeWeightMode(String exerciseId, String newMode) {
+    final oldMode = _getWeightMode(exerciseId);
+    if (oldMode == newMode) return;
+
+    final double barW = _barbellWeight[exerciseId] ?? 20.0;
+    final sets = _exerciseSets[exerciseId] ?? [];
+
+    setState(() {
+      _weightEntryMode[exerciseId] = newMode;
+      _useBarbell[exerciseId] = newMode == 'barbell';
+
+      // Converts an entry value to the new mode, keeping the total load.
+      // Empty stays empty so a hint doesn't turn into an entered value.
+      String convert(String raw) {
+        final currentVal = double.tryParse(raw.trim());
+        if (currentVal == null) return raw;
+        final double total = oldMode == 'barbell'
+            ? 2.0 * currentVal + barW
+            : (oldMode == 'dumbbell' ? 2.0 * currentVal : currentVal);
+        final double newVal = newMode == 'barbell'
+            ? max(0.0, (total - barW) / 2.0)
+            : (newMode == 'dumbbell' ? max(0.0, total / 2.0) : total);
+        return LocalWorkoutSet.formatWeight(newVal);
+      }
+
+      for (final set in sets) {
+        set.weightController.text = convert(set.weightController.text);
+        set.weightHint = convert(set.weightHint);
+      }
+    });
+
+    _prefs?.setString('pref_weight_mode_$exerciseId', newMode);
+    _saveCurrentDraft();
   }
 
   Widget _buildBarbellOptions(String exerciseId) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bool useBar = _useBarbell[exerciseId] ?? false;
+    final String mode = _getWeightMode(exerciseId);
     final double barW = _barbellWeight[exerciseId] ?? 20.0;
 
     if (!_barbellWeightControllers.containsKey(exerciseId)) {
@@ -1880,96 +2171,168 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
       elevation: 0,
       color: isDark ? Colors.white10 : Colors.grey.shade100,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _onToggleBarbell(exerciseId, !useBar),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Checkbox(
-                    value: useBar,
-                    onChanged: (val) {
-                      if (val != null) {
-                        _onToggleBarbell(exerciseId, val);
-                      }
-                    },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  mode == 'dumbbell'
+                      ? Icons.fitness_center
+                      : (mode == 'barbell'
+                          ? Icons.straighten
+                          : Icons.line_weight),
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Weight Mode:',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                if (mode == 'barbell') ...[
+                  const Text(
+                    'Bar:',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
-                  const Expanded(
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    width: 52,
+                    height: 30,
+                    child: TextField(
+                      controller: controller,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(vertical: 4),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (text) {
+                        final val = double.tryParse(text) ?? 20.0;
+                        setState(() {
+                          _barbellWeight[exerciseId] = val;
+                        });
+                        _saveCurrentDraft();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'kg',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ] else if (mode == 'dumbbell') ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
                     child: Text(
-                      'Use Barbell (enter weight on one side)',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  if (useBar) ...[
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Barbell:',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    const SizedBox(width: 4),
-                    SizedBox(
-                      width: 52,
-                      height: 32,
-                      child: TextField(
-                        controller: controller,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: const InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(vertical: 6),
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (text) {
-                          final val = double.tryParse(text) ?? 20.0;
-                          setState(() {
-                            _barbellWeight[exerciseId] = val;
-                          });
-                        },
+                      'Bar: 0 kg',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      'kg',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
+                  ),
                 ],
-              ),
-              if (useBar)
-                Padding(
-                  padding: const EdgeInsets.only(left: 48.0, bottom: 4.0, right: 8.0),
-                  child: Builder(
-                    builder: (context) {
-                      final sets = _exerciseSets[exerciseId] ?? [];
-                      final firstSetWeight = sets.isNotEmpty
-                          ? (double.tryParse(sets.first.weightController.text) ?? 0.0)
-                          : 0.0;
-                      final totalFirst = 2.0 * firstSetWeight + barW;
-                      final text = firstSetWeight > 0
-                          ? 'Example (Set 1): Total = ${LocalWorkoutSet.formatWeight(totalFirst)} kg (Bar ${LocalWorkoutSet.formatWeight(barW)} kg + 2 × ${LocalWorkoutSet.formatWeight(firstSetWeight)} kg/side)'
-                          : 'Example formula: Total = Bar (${LocalWorkoutSet.formatWeight(barW)} kg) + (2 × weight/side)';
-                      return Text(
-                        text,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      );
-                    },
+              ],
+            ),
+            const SizedBox(height: 10.0),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                showSelectedIcon: false,
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                   ),
                 ),
-            ],
-          ),
+                segments: const [
+                  ButtonSegment<String>(
+                    value: 'total',
+                    label: Text(
+                      'Total',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'barbell',
+                    label: Text(
+                      'Barbell',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  ButtonSegment<String>(
+                    value: 'dumbbell',
+                    label: Text(
+                      'Dumbbell',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+                selected: {mode},
+                onSelectionChanged: (newSelection) {
+                  _onChangeWeightMode(exerciseId, newSelection.first);
+                },
+              ),
+            ),
+            const SizedBox(height: 8.0),
+            Builder(
+              builder: (context) {
+                final sets = _exerciseSets[exerciseId] ?? [];
+                final firstSetWeight = sets.isNotEmpty
+                    ? (double.tryParse(sets.first.shownWeight) ?? 0.0)
+                    : 0.0;
+                String explanationText;
+                if (mode == 'barbell') {
+                  final totalFirst = 2.0 * firstSetWeight + barW;
+                  explanationText = firstSetWeight > 0
+                      ? 'Total = ${LocalWorkoutSet.formatWeight(totalFirst)} kg (Bar ${LocalWorkoutSet.formatWeight(barW)} kg + 2 × ${LocalWorkoutSet.formatWeight(firstSetWeight)} kg/side)'
+                      : 'Formula: Total = Bar (${LocalWorkoutSet.formatWeight(barW)} kg) + (2 × weight/side)';
+                } else if (mode == 'dumbbell') {
+                  final totalFirst = 2.0 * firstSetWeight;
+                  explanationText = firstSetWeight > 0
+                      ? 'Total = 2 × ${LocalWorkoutSet.formatWeight(firstSetWeight)} kg = ${LocalWorkoutSet.formatWeight(totalFirst)} kg (Bar: 0 kg)'
+                      : 'Formula: Total = 2 × weight (1 dumbbell per hand, Bar: 0 kg)';
+                } else {
+                  explanationText = firstSetWeight > 0
+                      ? 'Total = ${LocalWorkoutSet.formatWeight(firstSetWeight)} kg (Combined load)'
+                      : 'Standard: Enter total combined weight lifted.';
+                }
+                return Text(
+                  explanationText,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: mode == 'total'
+                        ? (isDark ? Colors.white60 : Colors.grey.shade600)
+                        : Theme.of(context).colorScheme.primary,
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -2236,10 +2599,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
         _buildHeaderCell('REPS', 7, isDark),
       ];
     } else {
-      final bool useBar = _useBarbell[exerciseId] ?? false;
+      final String mode = _getWeightMode(exerciseId);
+      final String weightLabel = mode == 'barbell'
+          ? 'WEIGHT (KG/SIDE)'
+          : (mode == 'dumbbell' ? 'WEIGHT (KG/DB)' : 'WEIGHT (KG)');
       children = [
         _buildHeaderCell('SET', 2, isDark),
-        _buildHeaderCell(useBar ? 'WEIGHT (KG/SIDE)' : 'WEIGHT (KG)', 9, isDark),
+        _buildHeaderCell(weightLabel, 9, isDark),
         _buildHeaderCell('REPS', 9, isDark),
       ];
     }
@@ -2278,8 +2644,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final String activeType = _activeTrackingTypes[exerciseId] ?? 'weight_reps';
 
-    final bool useBar = _useBarbell[exerciseId] ?? false;
-    final double step = useBar ? 1.25 : 2.5;
+    final String mode = _getWeightMode(exerciseId);
+    final double step = mode == 'barbell'
+        ? 1.25
+        : (mode == 'dumbbell' ? 1.0 : 2.5);
 
     List<Widget> children = [];
     if (activeType == 'cardio_time') {
@@ -2304,8 +2672,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
               ),
               textAlign: TextAlign.center,
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                hintText: '0.00',
+              decoration: InputDecoration(
+                hintText: _hint(localSet.distanceHint, '0.00'),
                 border: InputBorder.none,
               ),
             ),
@@ -2320,8 +2688,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
               keyboardType: TextInputType.datetime,
               textAlign: TextAlign.center,
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                hintText: 'MM:SS',
+              decoration: InputDecoration(
+                hintText: _hint(localSet.durationHint, 'MM:SS'),
                 border: InputBorder.none,
               ),
             ),
@@ -2347,8 +2715,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
               controller: localSet.durationController,
               keyboardType: TextInputType.datetime,
               textAlign: TextAlign.center,
-              decoration: const InputDecoration(
-                hintText: 'MM:SS',
+              decoration: InputDecoration(
+                hintText: _hint(localSet.durationHint, 'MM:SS'),
                 border: InputBorder.none,
               ),
             ),
@@ -2482,7 +2850,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
           constraints: const BoxConstraints(),
           visualDensity: VisualDensity.compact,
           onPressed: () {
-            final w = double.tryParse(localSet.weightController.text) ?? 0.0;
+            // Steps start from what's shown, including last time's hint.
+            final w = double.tryParse(localSet.shownWeight) ?? 0.0;
             localSet.weightController.text = LocalWorkoutSet.formatWeight(
               max(0.0, w - step),
             );
@@ -2493,10 +2862,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
             controller: localSet.weightController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textAlign: TextAlign.center,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
-              contentPadding: EdgeInsets.symmetric(vertical: 4),
+              contentPadding: const EdgeInsets.symmetric(vertical: 4),
               border: InputBorder.none,
+              hintText: _hint(localSet.weightHint, 'kg'),
             ),
           ),
         ),
@@ -2506,7 +2876,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
           constraints: const BoxConstraints(),
           visualDensity: VisualDensity.compact,
           onPressed: () {
-            final w = double.tryParse(localSet.weightController.text) ?? 0.0;
+            final w = double.tryParse(localSet.shownWeight) ?? 0.0;
             localSet.weightController.text = LocalWorkoutSet.formatWeight(
               w + step,
             );
@@ -2526,7 +2896,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
           constraints: const BoxConstraints(),
           visualDensity: VisualDensity.compact,
           onPressed: () {
-            final r = int.tryParse(localSet.repsController.text) ?? 0;
+            final r = int.tryParse(localSet.shownReps) ?? 0;
             localSet.repsController.text = max(0, r - 1).toString();
           },
         ),
@@ -2535,10 +2905,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
             controller: localSet.repsController,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
-              contentPadding: EdgeInsets.symmetric(vertical: 4),
+              contentPadding: const EdgeInsets.symmetric(vertical: 4),
               border: InputBorder.none,
+              hintText: _hint(localSet.repsHint, 'reps'),
             ),
           ),
         ),
@@ -2548,13 +2919,17 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
           constraints: const BoxConstraints(),
           visualDensity: VisualDensity.compact,
           onPressed: () {
-            final r = int.tryParse(localSet.repsController.text) ?? 0;
+            final r = int.tryParse(localSet.shownReps) ?? 0;
             localSet.repsController.text = (r + 1).toString();
           },
         ),
       ],
     );
   }
+
+  /// Hint text for a set field: last time's value, or a generic placeholder.
+  static String _hint(String previous, String fallback) =>
+      previous.isNotEmpty ? previous : fallback;
 
   Widget _buildTrackingChip(
     String label,
@@ -2677,7 +3052,26 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16.0),
+                    const SizedBox(height: 8.0),
+                    const Divider(),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.functions),
+                      title: const Text('Custom formula'),
+                      subtitle: const Text('Your own load & calorie formula for this exercise'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(this.context).push(MaterialPageRoute(
+                          builder: (_) => ExerciseFormulaScreen(
+                            db: widget.db,
+                            exercise: ex,
+                            trackingType: activeType,
+                          ),
+                        ));
+                      },
+                    ),
+                    const SizedBox(height: 8.0),
                   ],
                 ),
               ),
@@ -2717,6 +3111,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with WidgetsB
                   ex,
                   explicitSetCount: opts.setCount,
                   explicitWeightType: opts.weightType,
+                  historicalSets: opts.historicalSets,
                 );
               }
               _currentPageIndex = _sessionExercises.length - 1;
@@ -3022,9 +3417,19 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
     );
 
     if (confirmed == true) {
-      await (widget.db.delete(widget.db.exercises)
-            ..where((tbl) => tbl.id.equals(ex.id)))
-          .go();
+      final usedSets = await widget.db.deleteCustomExerciseIfUnused(ex.id);
+      if (!mounted) return;
+      if (usedSets > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '"${ex.name}" is used in $usedSets logged set${usedSets == 1 ? '' : 's'} '
+              'and cannot be deleted. Remove it from those sessions first.',
+            ),
+          ),
+        );
+        return;
+      }
       setState(() {
         _filteredExercises.removeWhere((e) => e.id == ex.id);
         widget.allExercises.removeWhere((e) => e.id == ex.id);

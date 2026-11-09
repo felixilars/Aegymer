@@ -12,8 +12,13 @@ const subtitleColor = Color(0xff6B7280);
 
 class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onProfilePressed;
+  final VoidCallback? onSettingsPressed;
 
-  const HomeAppBar({super.key, this.onProfilePressed});
+  const HomeAppBar({
+    super.key,
+    this.onProfilePressed,
+    this.onSettingsPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +30,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       leading: IconButton(
         icon: Icon(Icons.account_circle, color: iconColor, size: 28),
+        tooltip: 'Profile & Goals',
         onPressed: onProfilePressed,
       ),
       title: Text(
@@ -38,12 +44,9 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: true,
       actions: [
         IconButton(
-          icon: Icon(Icons.search, color: iconColor),
-          onPressed: () {},
-        ),
-        IconButton(
-          icon: Icon(Icons.notifications, color: iconColor),
-          onPressed: () {},
+          icon: Icon(Icons.settings_outlined, color: iconColor),
+          tooltip: 'Settings',
+          onPressed: onSettingsPressed,
         ),
       ],
     );

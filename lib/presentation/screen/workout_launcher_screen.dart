@@ -310,43 +310,46 @@ class _WorkoutLauncherScreenState extends State<WorkoutLauncherScreen> {
   Future<void> _startFreeStyleWorkout() async {
     final canProceed = await _checkExistingDraftBeforeStart();
     if (!canProceed || !mounted) return;
-    Navigator.of(context)
-        .push(
-          MaterialPageRoute(
-            builder: (context) =>
-                ActiveWorkoutScreen(db: widget.db, routine: null),
-          ),
-        )
-        .then((_) => _loadRoutines());
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            ActiveWorkoutScreen(db: widget.db, routine: null),
+      ),
+    );
+    if (mounted) {
+      await _loadRoutines();
+    }
   }
 
   Future<void> _startRoutineWorkout(RoutineWithExercises routineWithEx) async {
     final canProceed = await _checkExistingDraftBeforeStart();
     if (!canProceed || !mounted) return;
-    Navigator.of(context)
-        .push(
-          MaterialPageRoute(
-            builder: (context) =>
-                ActiveWorkoutScreen(db: widget.db, routine: routineWithEx),
-          ),
-        )
-        .then((_) => _loadRoutines());
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            ActiveWorkoutScreen(db: widget.db, routine: routineWithEx),
+      ),
+    );
+    if (mounted) {
+      await _loadRoutines();
+    }
   }
 
   Future<void> _startWorkoutWithDate({RoutineWithExercises? routine, DateTime? date}) async {
     final canProceed = await _checkExistingDraftBeforeStart();
     if (!canProceed || !mounted) return;
-    Navigator.of(context)
-        .push(
-          MaterialPageRoute(
-            builder: (context) => ActiveWorkoutScreen(
-              db: widget.db,
-              routine: routine,
-              initialDate: date,
-            ),
-          ),
-        )
-        .then((_) => _loadRoutines());
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ActiveWorkoutScreen(
+          db: widget.db,
+          routine: routine,
+          initialDate: date,
+        ),
+      ),
+    );
+    if (mounted) {
+      await _loadRoutines();
+    }
   }
 
   Future<void> _showLogPastWorkoutDialog() async {

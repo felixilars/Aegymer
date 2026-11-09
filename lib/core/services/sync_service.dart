@@ -228,7 +228,9 @@ class SyncService {
         }).toList();
 
         await _db.batch((batch) {
-          batch.insertAll(_db.exercises, companions, mode: InsertMode.insertOrReplace);
+          // Upsert (not REPLACE): REPLACE deletes the row first, which violates
+          // foreign keys from rows that reference it.
+          batch.insertAllOnConflictUpdate(_db.exercises, companions);
         });
       }
 
@@ -292,7 +294,9 @@ class SyncService {
         }).toList();
 
         await _db.batch((batch) {
-          batch.insertAll(_db.foods, companions, mode: InsertMode.insertOrReplace);
+          // Upsert (not REPLACE): REPLACE deletes the row first, which violates
+          // foreign keys from rows that reference it.
+          batch.insertAllOnConflictUpdate(_db.foods, companions);
         });
       }
       debugPrint('[SyncService] Sync foods completed successfully. Total: ${allData.length}');

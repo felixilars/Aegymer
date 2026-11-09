@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:aegymer/core/databases/app_database.dart';
 import 'package:aegymer/core/utils/workout_cal.dart';
+import 'package:aegymer/core/utils/exercise_formula.dart';
 import 'package:aegymer/core/services/streak_service.dart';
+import 'package:aegymer/core/utils/workout_session_helper.dart';
 
 class _EditableSet {
   final TextEditingController weightController;
@@ -99,9 +101,12 @@ class _EditWorkoutSessionScreenState extends State<EditWorkoutSessionScreen> {
   late DateTime _selectedDate;
   late TimeOfDay _selectedTime;
   late TextEditingController _notesController;
+  String? _existingRoutineTag;
 
   List<_EditableExerciseGroup> _groups = [];
   double _userWeight = 70.0;
+  // Custom formulas of this session's exercises; saving re-applies them.
+  Map<String, ExerciseFormula> _formulas = {};
   bool _loading = true;
   bool _saving = false;
 
@@ -110,7 +115,10 @@ class _EditWorkoutSessionScreenState extends State<EditWorkoutSessionScreen> {
     super.initState();
     _selectedDate = widget.session.date.toLocal();
     _selectedTime = TimeOfDay.fromDateTime(widget.session.date.toLocal());
-    _notesController = TextEditingController(text: widget.session.notes ?? '');
+    _existingRoutineTag = WorkoutSessionHelper.extractRoutineTag(widget.session.notes);
+    _notesController = TextEditingController(
+      text: WorkoutSessionHelper.cleanNotes(widget.session.notes),
+    );
     _loadSessionData();
   }
 
@@ -136,6 +144,14 @@ class _EditWorkoutSessionScreenState extends State<EditWorkoutSessionScreen> {
       ..where(widget.db.workoutSets.sessionId.equals(widget.session.id))
       ..orderBy([drift.OrderingTerm.asc(widget.db.workoutSets.setNumber)]))
       .get();
+
+    final formulas = <String, ExerciseFormula>{};
+    for (final id in sets.map((r) => r.readTable(widget.db.workoutSets).exerciseId).toSet()) {
+      final row = await widget.db.getExerciseFormula(id);
+      if (row != null) {
+        formulas[id] = ExerciseFormula.fromSource(load: row.loadFormula, kcal: row.kcalFormula);
+      }
+    }
 
     if (!mounted) return;
 
@@ -171,6 +187,7 @@ class _EditWorkoutSessionScreenState extends State<EditWorkoutSessionScreen> {
 
     setState(() {
       _userWeight = profileWeight > 0 ? profileWeight : 70.0;
+      _formulas = formulas;
       _groups = map.values.toList();
       _loading = false;
     });
@@ -190,6 +207,9 @@ class _EditWorkoutSessionScreenState extends State<EditWorkoutSessionScreen> {
       equipment: ex.equipment,
     );
 
+    final custom = _formulaResult(ex, s)?.kcal;
+    if (custom != null) return custom;
+
     return WorkoutCalculator.calculateSetCalories(
       exerciseName: ex.name,
       targetMuscle: ex.targetMuscle,
@@ -200,6 +220,19 @@ class _EditWorkoutSessionScreenState extends State<EditWorkoutSessionScreen> {
       reps: s.parsedReps,
       distanceKm: s.parsedDistance,
       durationSeconds: s.parsedDurationSeconds > 0 ? s.parsedDurationSeconds : 90,
+    );
+  }
+
+  /// Preview of what saving will store when the exercise has a custom formula.
+  SetFormulaResult? _formulaResult(Exercise ex, _EditableSet s) {
+    final f = _formulas[ex.id];
+    if (f == null || f.isEmpty) return null;
+    return f.apply(
+      weight: s.parsedWeight,
+      reps: s.parsedReps,
+      bodyweight: _userWeight,
+      durationSeconds: s.parsedDurationSeconds > 0 ? s.parsedDurationSeconds : 90,
+      distanceKm: s.parsedDistance,
     );
   }
 
@@ -217,7 +250,7 @@ class _EditWorkoutSessionScreenState extends State<EditWorkoutSessionScreen> {
     double total = 0.0;
     for (final g in _groups) {
       for (final s in g.sets) {
-        total += (s.parsedWeight * s.parsedReps);
+        total += (_formulaResult(g.exercise, s)?.load ?? s.parsedWeight) * s.parsedReps;
       }
     }
     return total;
@@ -424,6 +457,14 @@ class _EditWorkoutSessionScreenState extends State<EditWorkoutSessionScreen> {
       int globalSetCounter = 0;
 
       for (final group in _groups) {
+        final trackingType = WorkoutCalculator.normalizeTrackingType(
+          group.exercise.trackingType,
+          name: group.exercise.name,
+          targetMuscle: group.exercise.targetMuscle,
+          equipment: group.exercise.equipment,
+        );
+        final isTimeOrCardio = trackingType == 'cardio_time' || trackingType == 'time_only';
+
         for (int i = 0; i < group.sets.length; i++) {
           globalSetCounter++;
           final s = group.sets[i];
@@ -431,7 +472,17 @@ class _EditWorkoutSessionScreenState extends State<EditWorkoutSessionScreen> {
           final r = s.parsedReps;
           final dist = s.parsedDistance;
           final dur = s.parsedDurationSeconds;
-          final e1rm = WorkoutCalculator.calculateE1RM(w, r);
+
+          final double effWeight = (s.weightType == 'bodyweight' || s.weightType == 'added' || s.weightType == 'assisted')
+              ? WorkoutCalculator.getEffectiveWeight(
+                  weightInput: w,
+                  weightType: s.weightType,
+                  userBodyweight: _userWeight,
+                  exerciseName: group.exercise.name,
+                )
+              : w;
+
+          final e1rm = isTimeOrCardio ? 0.0 : WorkoutCalculator.calculateE1RM(effWeight, r);
 
           companions.add(
             WorkoutSetsCompanion.insert(
@@ -439,21 +490,30 @@ class _EditWorkoutSessionScreenState extends State<EditWorkoutSessionScreen> {
               sessionId: widget.session.id,
               exerciseId: group.exercise.id,
               setNumber: i + 1,
-              weight: w,
-              reps: r,
+              weight: isTimeOrCardio ? 0.0 : effWeight,
+              reps: trackingType == 'cardio_time' ? 1 : (trackingType == 'time_only' ? (dur > 0 ? dur : r) : r),
               weightType: drift.Value(s.weightType),
               distance: drift.Value(dist > 0 ? dist : null),
-              durationSeconds: drift.Value(dur > 0 ? dur : 90),
+              // Cardio keeps an empty duration empty; strength sets fall back to a
+              // 90s estimate used only for calorie calculations.
+              durationSeconds: drift.Value(
+                dur > 0 ? dur : (trackingType == 'cardio_time' ? null : 90),
+              ),
               calculated1rm: drift.Value(e1rm > 0 ? e1rm : null),
             ),
           );
         }
       }
 
+      final finalNotes = WorkoutSessionHelper.formatNotesWithRoutine(
+        userNotes: _notesController.text.trim(),
+        routineName: _existingRoutineTag,
+      );
+
       await widget.db.updateWorkoutSession(
         sessionId: widget.session.id,
         date: finalDate,
-        notes: _notesController.text.trim(),
+        notes: finalNotes,
         setsCompanions: companions,
       );
 

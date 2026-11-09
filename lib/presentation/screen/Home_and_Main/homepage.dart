@@ -10,6 +10,7 @@ import 'package:aegymer/presentation/screen/workout_history_screen.dart';
 import 'package:aegymer/presentation/screen/edit_workout_session_screen.dart';
 import 'package:aegymer/presentation/screen/active_workout_screen.dart';
 import 'package:aegymer/core/services/workout_draft_service.dart';
+import 'package:aegymer/core/utils/workout_session_helper.dart';
 
 const backgroundColor = Color(0xffF5F7FA);
 const cardColor = Colors.white;
@@ -35,6 +36,7 @@ class Homepage extends StatefulWidget {
 class _HomepageState extends State<Homepage> {
   final PageController _controller = PageController();
   List<WorkoutSession> _recentSessions = [];
+  Map<String, String> _sessionDisplayNames = {};
   bool _loadingSessions = true;
 
   StreakSummary? _streakSummary;
@@ -90,8 +92,50 @@ class _HomepageState extends State<Homepage> {
     final sessions = await query.get();
     if (!mounted) return;
 
+    if (sessions.isEmpty) {
+      setState(() {
+        _recentSessions = [];
+        _sessionDisplayNames = {};
+        _loadingSessions = false;
+      });
+      return;
+    }
+
+    final cachedRoutines = await widget.db.getRoutinesWithExercises();
+    final sessionIds = sessions.map((s) => s.id).toList();
+
+    // Batch load exercise IDs for recent sessions to avoid extra queries in resolveSessionName
+    final setRows = await (widget.db.selectOnly(widget.db.workoutSets, distinct: true)
+      ..addColumns([widget.db.workoutSets.sessionId, widget.db.workoutSets.exerciseId])
+      ..where(widget.db.workoutSets.sessionId.isIn(sessionIds)))
+      .get();
+
+    final Map<String, List<String>> sessionExerciseIds = {};
+    for (final row in setRows) {
+      final sId = row.read(widget.db.workoutSets.sessionId);
+      final eId = row.read(widget.db.workoutSets.exerciseId);
+      if (sId != null && eId != null) {
+        sessionExerciseIds.putIfAbsent(sId, () => []).add(eId);
+      }
+    }
+
+    final names = <String, String>{};
+    for (int i = 0; i < sessions.length; i++) {
+      final s = sessions[i];
+      names[s.id] = await WorkoutSessionHelper.resolveSessionName(
+        session: s,
+        db: widget.db,
+        index: i,
+        cachedRoutines: cachedRoutines,
+        sessionExerciseIds: sessionExerciseIds[s.id] ?? const [],
+      );
+    }
+
+    if (!mounted) return;
+
     setState(() {
       _recentSessions = sessions;
+      _sessionDisplayNames = names;
       _loadingSessions = false;
     });
   }
@@ -1081,7 +1125,7 @@ class _HomepageState extends State<Homepage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Workout #${index + 1}',
+                        _sessionDisplayNames[session.id] ?? 'Workout #${index + 1}',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -1155,18 +1199,24 @@ class _HomepageState extends State<Homepage> {
                 ),
               ],
             ),
-            if (session.notes != null && session.notes!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                session.notes!,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: txtCol,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+            Builder(
+              builder: (context) {
+                final clean = WorkoutSessionHelper.cleanNotes(session.notes);
+                if (clean.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    clean,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: txtCol,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),

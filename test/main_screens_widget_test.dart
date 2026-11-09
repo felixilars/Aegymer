@@ -6,14 +6,24 @@ import 'package:aegymer/presentation/screen/MealPrep/meal_prep_page.dart';
 import 'package:aegymer/presentation/screen/workout_launcher_screen.dart';
 import 'package:aegymer/presentation/screen/workout_progress_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  late AppDatabase db;
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    db = AppDatabase(NativeDatabase.memory());
+  });
+
+  tearDown(() async {
+    await db.close();
+  });
+
   group('Main app screens render', () {
     testWidgets('Home screen shows core dashboard widgets', (
       WidgetTester tester,
     ) async {
-      final db = AppDatabase(NativeDatabase.memory());
-
       await tester.pumpWidget(
         MaterialApp(
           home: Homepage(
@@ -32,8 +42,6 @@ void main() {
     testWidgets('Meal page shows recommendation and search areas', (
       WidgetTester tester,
     ) async {
-      final db = AppDatabase(NativeDatabase.memory());
-
       await tester.pumpWidget(
         MaterialApp(
           home: MealPrepPage(db: db),
@@ -50,8 +58,6 @@ void main() {
     testWidgets('Workout launcher renders the free-style and routines sections', (
       WidgetTester tester,
     ) async {
-      final db = AppDatabase(NativeDatabase.memory());
-
       await tester.pumpWidget(
         MaterialApp(
           home: WorkoutLauncherScreen(db: db),
@@ -67,8 +73,6 @@ void main() {
     testWidgets('Progress screen renders without crashing with empty history', (
       WidgetTester tester,
     ) async {
-      final db = AppDatabase(NativeDatabase.memory());
-
       await tester.pumpWidget(
         MaterialApp(
           home: WorkoutProgressScreen(db: db),

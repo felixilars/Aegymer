@@ -475,6 +475,33 @@ class WorkoutCalculator {
     }
   }
 
+  /// Whether a set counts as performed and should be saved. Shared by every
+  /// save path so the same inputs always produce the same history.
+  /// [totalWeight] is the full load (bar + plates, both dumbbells).
+  static bool isSetCompleted({
+    required String trackingType,
+    required double totalWeight,
+    required int reps,
+    double distance = 0,
+    int durationSeconds = 0,
+    String? weightType,
+  }) {
+    switch (trackingType) {
+      case 'cardio_time':
+        return durationSeconds > 0 || distance > 0;
+      case 'time_only':
+        return durationSeconds > 0;
+      case 'bodyweight':
+        return reps > 0;
+      case 'bodyweight_weighted':
+      case 'bodyweight_assisted':
+        // A plain bodyweight set (no added weight / assistance) needs only reps.
+        return weightType == 'bodyweight' ? reps > 0 : totalWeight > 0 && reps > 0;
+      default:
+        return totalWeight > 0 && reps > 0;
+    }
+  }
+
   static double getMETForExercise(String exerciseName, String equipment) {
     final nameLower = exerciseName.toLowerCase();
     final equipLower = equipment.toLowerCase();
